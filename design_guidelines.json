@@ -1,0 +1,135 @@
+{
+  "theme": "dark_primary_with_light_toggle",
+  "typography": {
+    "fonts": {
+      "headings": "Cabinet Grotesk, sans-serif",
+      "body": "IBM Plex Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scales": {
+      "h1": "text-4xl tracking-tight font-bold",
+      "h2": "text-2xl tracking-tight font-semibold",
+      "h3": "text-xl font-medium",
+      "body": "text-sm leading-relaxed",
+      "mono_data": "text-xs font-mono tracking-widest uppercase",
+      "labels": "text-[10px] tracking-[0.2em] uppercase font-semibold text-muted-foreground"
+    },
+    "rules": [
+      "Headings must use tight letter spacing (tracking-tight).",
+      "Overlines/Labels must be uppercase, tiny, and wide spacing (tracking-[0.2em]).",
+      "Use JetBrains Mono or IBM Plex Mono for all YAML ADL codes, Event Bus Logs, and raw metrics.",
+      "Do NOT use Space Grotesk or Inter for headings."
+    ]
+  },
+  "colors": {
+    "archetype": "Swiss & High-Contrast mixed with Retro-Futurism/Terminal",
+    "palette": {
+      "base": "Dark Void / Midnight (hsl(240, 10%, 4%))",
+      "card": "Elevated Dark (hsl(240, 10%, 6%))",
+      "border": "Subtle Skeleton (hsl(240, 10%, 15%))",
+      "primary": "Neon Cyan (hsl(180, 100%, 50%)) - Tech Command",
+      "accent": "Warning Yellow (hsl(45, 100%, 50%)) - Alerts/Active states"
+    },
+    "tailwind_vars_to_update": {
+      "dark": {
+        "--background": "240 10% 4%",
+        "--foreground": "0 0% 98%",
+        "--card": "240 10% 6%",
+        "--card-foreground": "0 0% 98%",
+        "--popover": "240 10% 6%",
+        "--popover-foreground": "0 0% 98%",
+        "--primary": "180 100% 50%",
+        "--primary-foreground": "0 0% 0%",
+        "--secondary": "240 10% 12%",
+        "--secondary-foreground": "0 0% 98%",
+        "--muted": "240 10% 12%",
+        "--muted-foreground": "240 5% 65%",
+        "--border": "240 10% 15%",
+        "--input": "240 10% 15%",
+        "--ring": "180 100% 50%"
+      }
+    },
+    "rules": [
+      "Avoid true black (#000000). Use Dark Void (hsl(240,10%,4%)) for elevation and depth.",
+      "Use highly desaturated dark grays for surfaces, with 1px high-contrast borders.",
+      "Primary color (Cyan) should be used sparingly for true calls to action or active states.",
+      "Color is function only. Most UI should be monochrome dark."
+    ]
+  },
+  "visual_enhancers": {
+    "surfaces": [
+      "Use 'Grid Borders (The Technical Look)' for the developer console.",
+      "Cards should have a flat background, 1px subtle border, NO soft shadows. Use sharp or very slightly rounded edges (rounded-sm).",
+      "Expose the grid: Use visible 1px borders between bento box elements to feel like a blueprint."
+    ],
+    "glassmorphism": "Avoid muddy transparency. Use solid backgrounds or high-end blur (backdrop-blur-xl bg-black/60) with 1px border-white/10 for sticky headers.",
+    "textures": "Subtle noise overlay on the main background to kill digital flatness and enhance the 'OS layer' luxury feel."
+  },
+  "components": {
+    "shadcn": [
+      "Use Shadcn primitives but heavily customize their classes. Ensure .js / .jsx usage.",
+      "Tables: High density. Use Mono font for IDs, Statuses, and Dates.",
+      "Tabs: Use crisp, under-lined technical tabs, not rounded pills.",
+      "Code Editor: Integrate a real syntax highlighter or use a styled textarea with JetBrains Mono for the ADL YAML with real-time validation visual cues.",
+      "Cards: Strip away default rounding (use rounded-sm at most).",
+      "Toasts: Use Sonner for notifications (e.g., 'Agent Compiled', 'Event Bus Error')."
+    ],
+    "icons": "Use Phosphor Icons (@phosphor-icons/react) for a technical, crisp look."
+  },
+  "grids_and_layouts": {
+    "strategy": "High Density Grid (For Dashboards / OS Panels)",
+    "rules": [
+      "Base Grid: grid-cols-1 md:grid-cols-4 lg:grid-cols-12.",
+      "Gap Strategy: Tight (gap-4 or gap-[1px] with bg-border to create 1px grid lines).",
+      "F-Pattern Hierarchy: Critical ecosystem numbers top-left. Event bus stream right/bottom.",
+      "Spacing: Dense and compact to fit data without scrolling. p-4 or p-6 inside cards.",
+      "Optical Alignment: Maintain strict vertical rhythms for lists and event logs."
+    ]
+  },
+  "motion": {
+    "rules": [
+      "Minimalist and user-controlled. No inescapable animations.",
+      "Use micro-interactions for feedback (hover states: -translate-y-[1px], border color shift to Cyan).",
+      "Staggered entrance for agent lists/tables.",
+      "Compile/Validation workflows in the ADL editor should have a distinct 'scanning' or 'processing' animation."
+    ]
+  },
+  "accessibility": {
+    "rules": [
+      "Normal text minimum 4.5:1 contrast against dark background.",
+      "Interactive states must explicitly set text color (e.g., hover:bg-secondary hover:text-white).",
+      "Data-testid attributes MUST be added to all interactive elements, e.g., data-testid='compile-adl-btn'."
+    ]
+  },
+  "3d_libraries": {
+    "recommendation": "Recharts for Monitoring KPIs (CPU/Memory of agents). D3.js ONLY if building an interactive node-graph of the Agent Ecosystem. Otherwise, stick to standard dense 2D visualizations via Recharts."
+  },
+  "image_urls": {
+    "abstract_tech_bg": {
+      "url": "https://images.pexels.com/photos/18337643/pexels-photo-18337643.jpeg",
+      "description": "Dynamic abstract neon lights, useful for a subtle hero background on the login page or OS boot screen (heavily overlaid with bg-black/80)."
+    },
+    "agent_000_avatar": {
+      "url": "https://images.unsplash.com/photo-1737644467636-6b0053476bb2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzV8MHwxfHNlYXJjaHwxfHxhaSUyMHJvYm90JTIwYXZhdGFyJTIwZmFjZXxlbnwwfHx8fDE3ODI0MDI1MzV8MA&ixlib=rb-4.1.0&q=85",
+      "description": "White robot face on black background, perfect for Agent 000's profile picture or default agent avatars."
+    }
+  },
+  "instructions_to_main_agent": [
+    "You are building an 'Agent Operating System Layer'. It must feel like a high-end developer console, not a generic SaaS dashboard.",
+    "Use a dark theme by default, adjusting the CSS variables in index.css to match the Deep Void / Cyan accent scheme.",
+    "Ensure all `.js` and `.jsx` files adhere to the strict typographical hierarchy. Use Cabinet Grotesk for section titles, JetBrains Mono for agent IDs/code.",
+    "For the ADL Editor, ensure the YAML input uses a monospace font and has a visual 'Compile' workflow.",
+    "Never use `transparent` backgrounds for headers or dropdowns. Always use solid `bg-card` or `bg-background` to prevent text collision.",
+    "Include `data-testid` on all buttons, links, and forms."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Avoid generic, 'on distribution' AI outputs. Do not make generic centered layouts.",
+    "Use glass-morphism effects with backdrop filters (12-24px blur) where floating elements are needed.",
+    "NEVER apply universal transitions (`transition: all`). Target specific properties.",
+    "NEVER center align the app container in App.css.",
+    "Use modern button styles (sharp technical corners or slight rounding, not generic pills) with interaction animations.",
+    "Every interaction needs micro-animations (hover states, transitions).",
+    "Use Sonner for toasts (`/app/src/components/ui/sonner.tsx`).",
+    "NEVER use AI assistant emojis (🤖🧠💭💡🔮🎯). Use Phosphor icons instead."
+  ]
+}
