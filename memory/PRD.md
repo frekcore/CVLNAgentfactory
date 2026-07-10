@@ -48,7 +48,7 @@ Plateforme Palier 3 (V1 : Registry + ADL) : système d'exploitation pour agents 
 ## Mission en cours : CVLN-ARCH-CONTINUITY-001 (protocole CVLN-GOV-AUDIT-001)
 Transformer CVLN en infrastructure cognitive persistante, traçable, gouvernée. Phases validées par Laurent :
 - [x] PHASE 0 — Sécurisation (fix Telegram + snapshot)
-- [ ] PHASE 1 — Permission Gate v2 (6 niveaux, règles par agent/mission/type d'action, journal des refus) + Activity Journal v2 (fusion events/audit, 8 types, confiance+preuve)
+- [x] PHASE 1 — CVLN-GOV-PHASE1-001 (2026-07-10, testé iteration_6 : backend 21/21, frontend 100%) : Permission Gate v2 (6 niveaux, règles agent>mission>action_type>défaut, 6 actions critiques non contournables → validation Laurent, escalade auto + notif N2, journal des refus) + Activity Journal v2 (collection activity_journal, 8 types, helper journal(), fusion lecture /journal/unified avec audit_logs+events, zéro migration) + hooks missions deliver/validate + page Gouvernance (4 onglets). gate_check() réutilisable par le Runtime PHASE 4.
 - [ ] PHASE 2 — Doctrine Registry v2 (statuts proposition/validée/active/archivée, versions, validateur, historique) + Memory Layer 4 types (doctrinale/stratégique/opérationnelle/apprentissage) + Objective Registry (nouveau)
 - [ ] PHASE 3 — Agent Runtime states (actif/sommeil/erreur/attente validation/terminé/suspendu) + réveil avec restauration contexte complet
 - [ ] PHASE 4 — Autonomous Runtime Layer (cycle 9 étapes, DRY RUN obligatoire au départ)
