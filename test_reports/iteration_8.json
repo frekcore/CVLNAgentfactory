@@ -1,0 +1,39 @@
+{
+  "summary": "PHASE 3 Agent Runtime — full backend + frontend integration validation. Created /app/backend/tests/test_phase3_runtime.py (19 tests, 18 passed / 1 intentionally skipped = no reader account). Verified runtime state machine (6 states + strict transitions), forbidden transitions (409 + journal action_bloquee), sleep→auto checkpoint→wake exact restoration, missing_information signaling in French, manual checkpoint CRUD, full context restoration (objectives, gate rules, doctrine specific + global >=21 rules, autonomy), Permission Gate escalation (service 423 + validation_request_id) on both critical transitions (suspendu→actif, actif→termine), admin approve + service retry with validation_id → 200, backend restart recovery (/api/runtime/recovery-status + journal observation 'Reprise système'). Frontend: /agents/AGT-011 shows [data-testid='runtime-panel'] with runtime-state-badge, 5 transition buttons, checkpoint 'last_action → next_action' displayed, sleep/wake cycle works with toast 'Réveil de AGT-011 — contexte restauré · 1 info(s) manquante(s) signalée(s)'. Non-regression: Phase 1 (test_gate_journal.py) + Phase 2 (test_phase2_registries.py) suites → 47/47 passed. Lifecycle transitions (Beta/Production) intact on AgentDetail. Dashboard/Agents/Governance load cleanly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase3_runtime.py",
+    "/app/test_reports/pytest/phase3_runtime_results.xml",
+    "/app/test_reports/pytest/phase1_phase2_after_phase3.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "runtime_routes.py:158 — auto-checkpoint condition includes 'termine' but the current code path also handles gate-blocked termine BEFORE checkpoint (line 146-154 raises 423 first). This is fine but means no checkpoint is created if gate blocks; consider creating a rollback-safe checkpoint even on escalation to preserve last_action/next_action for audit.",
+    "runtime_routes.py:189 — wake_agent allows only sommeil/erreur/attente_validation; suspendu cannot be woken directly (requires suspendu→actif via gate). Behavior matches spec; documented in state machine.",
+    "runtime_routes.py:167 — 'last_checkpoint_id' fallback uses agent.runtime dict access; if runtime was previously None it falls back correctly. OK.",
+    "gate_routes.py:105-113 — admin humain triggers implicit validation on level 5 with immediate action_executee; this correctly emits both decision_humaine + action_executee journal entries.",
+    "server.py — runtime_recovery is called at lifespan startup; after restart the report row is written every startup with timestamp; consider keeping only the last N recovery reports if runtime_recoveries collection grows unbounded."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase3_runtime.py (created)"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 executed phase3 + 47/47 phase1+phase2 non-regression)",
+    "frontend": "100% (runtime-panel + badge + transitions + sleep/wake toast + lifecycle intact + main pages load)"
+  },
+  "test_credentials": "Admin laurent@cvln.fr / CVLNfactory2026! + Service Bearer svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "During TestFullRestoration a TEST_-prefixed objective on AGT-012 was created and archived at teardown; a TEST_ gate rule (memory_write level 2) was created and deactivated; the doctrine agents_concerned patch was rolled back. Backend restart happened once during TestRecovery (documented in runtime_recoveries collection). AGT-011 ended in actif (as it started). AGT-012 ended in actif (was sommeil uninitialized at start — now initialized). No production data destroyed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run phase3 tests serially with `pytest tests/test_phase3_runtime.py -n 0` — default pytest.ini uses -n 2 --dist loadscope which SPLITS classes across workers and races on the shared TEST_AGENT (AGT-012). Serial is required. AGT-012 is now initialized in runtime (initialized:true) — subsequent status checks should account for that. If AGT-012 accidentally left in suspendu/erreur, use admin approve gate escalation to revive. TestPermissionGate creates 2 validation_requests (one approved, one pending termine) — the pending one for actif→termine is NEVER approved (protocol respected).",
+  "rca of the issue": "No bugs found. Only observation: default pytest.ini has `-n 2 --dist loadscope` which parallelizes classes across 2 workers; because ALL phase3 test classes mutate the same AGT-012 runtime state, running with default parallelism causes race conditions. Serial execution (-n 0) is mandatory for this suite. This matches the review request note (`pytest -n 0`)."
+}

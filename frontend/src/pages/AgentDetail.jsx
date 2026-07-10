@@ -22,6 +22,7 @@ export default function AgentDetail() {
   const { user } = useAuth();
   const [agent, setAgent] = useState(null);
   const [versions, setVersions] = useState([]);
+  const [runtime, setRuntime] = useState(null);
   const [tab, setTab] = useState("overview");
   const [diffFrom, setDiffFrom] = useState("");
   const [diffTo, setDiffTo] = useState("");
@@ -30,10 +31,28 @@ export default function AgentDetail() {
   const load = () => {
     api.get(`/registry/agents/${agentId}`).then((r) => setAgent(r.data)).catch(() => {});
     api.get(`/registry/agents/${agentId}/versions`).then((r) => setVersions(r.data)).catch(() => {});
+    api.get(`/runtime/agents/${agentId}`).then((r) => setRuntime(r.data)).catch(() => {});
   };
   useEffect(() => { load(); }, [agentId]);
 
   if (!agent) return <p className="text-muted-foreground font-mono text-sm">{t("loading")}</p>;
+
+  const runtimeTransition = async (state) => {
+    try {
+      if (state === "actif" && ["sommeil", "erreur", "attente_validation"].includes(runtime?.runtime?.state)) {
+        const { data } = await api.post(`/runtime/agents/${agentId}/wake`);
+        const m = data.missing_information;
+        toast.success(`Réveil de ${agentId} — contexte restauré${m.length ? ` · ${m.length} info(s) manquante(s) signalée(s)` : " complet"}`);
+      } else {
+        await api.post(`/runtime/agents/${agentId}/state`, { state, note: "console" });
+        toast.success(`Runtime : ${state}`);
+      }
+      load();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast.error(typeof d === "object" && d?.message ? d.message : formatApiError(d));
+    }
+  };
 
   const transition = async (target) => {
     const note = window.prompt(`${agent.status} → ${target} — ${t("note")} :`) || "";
@@ -84,6 +103,34 @@ export default function AgentDetail() {
           </button>
         </div>
       </div>
+
+      {runtime && (
+        <div data-testid="runtime-panel" className="border border-border rounded-sm bg-card p-4 flex items-center gap-3 flex-wrap">
+          <span className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground font-semibold">Runtime :</span>
+          <span data-testid="runtime-state-badge" className={`text-[9px] uppercase tracking-widest px-2 py-0.5 border rounded-sm font-mono ${
+            runtime.runtime.state === "actif" ? "text-emerald-400 border-emerald-900" :
+            runtime.runtime.state === "sommeil" ? "text-sky-400 border-sky-900" :
+            runtime.runtime.state === "erreur" ? "text-red-400 border-red-900" :
+            runtime.runtime.state === "attente_validation" ? "text-amber-400 border-amber-900" : "text-zinc-400 border-zinc-700"}`}>
+            {runtime.runtime.state}
+          </span>
+          {runtime.last_checkpoint && (
+            <span className="text-[10px] font-mono text-muted-foreground">
+              checkpoint : {runtime.last_checkpoint.last_action?.slice(0, 60)} → {runtime.last_checkpoint.next_action?.slice(0, 60) || "—"}
+            </span>
+          )}
+          {user?.role !== "reader" && (
+            <div className="flex gap-2 ml-auto">
+              {runtime.allowed_transitions.map((s) => (
+                <button key={s} data-testid={`runtime-${s}-btn`} onClick={() => runtimeTransition(s)}
+                  className="border border-border px-3 py-1 text-xs font-mono rounded-sm hover:border-primary hover:text-primary transition-colors duration-150">
+                  {s === "actif" && ["sommeil", "erreur", "attente_validation"].includes(runtime.runtime.state) ? "⏰ réveiller" : `→ ${s}`}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {canWrite && agent.allowed_transitions?.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap">
