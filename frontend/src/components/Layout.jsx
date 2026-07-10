@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLang } from "../lib/i18n";
 import {
   SquaresFour, Robot, Code, Factory, Scroll, Broadcast, ShieldCheck,
-  UsersThree, SignOut, Pulse, CalendarCheck,
+  UsersThree, SignOut, Pulse, CalendarCheck, Crown, Buildings, BookOpen, CurrencyEur,
 } from "@phosphor-icons/react";
 
 const NAV = [
@@ -12,6 +12,9 @@ const NAV = [
   { to: "/editor", key: "adl_editor", icon: Code },
   { to: "/generator", key: "generator", icon: Factory },
   { to: "/daily", key: "daily_closing", icon: CalendarCheck },
+  { to: "/entities", key: "entities", icon: Buildings },
+  { to: "/knowledge", key: "knowledge_nav", icon: BookOpen },
+  { to: "/finance", key: "finance_nav", icon: CurrencyEur },
   { to: "/doctrine", key: "doctrine", icon: Scroll },
   { to: "/events", key: "events", icon: Broadcast },
   { to: "/audit", key: "audit", icon: ShieldCheck },
@@ -23,7 +26,9 @@ export const Layout = () => {
   const { lang, setLang, t } = useLang();
   const navigate = useNavigate();
 
-  const nav = user?.role === "admin" ? [...NAV, { to: "/users", key: "users", icon: UsersThree }] : NAV;
+  const nav = user?.role === "admin"
+    ? [NAV[0], { to: "/founder", key: "founder_center", icon: Crown }, ...NAV.slice(1), { to: "/users", key: "users", icon: UsersThree }]
+    : NAV;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">

@@ -34,6 +34,16 @@ class GeneratePayload(BaseModel):
     target_status: str = "Beta"
 
 
+class BulkImportPayload(BaseModel):
+    format: str = "json"  # json | csv
+    data: str
+
+
+class BatchGeneratePayload(BaseModel):
+    catalog_ids: List[str] = Field(default_factory=list)
+    all_pending: bool = False
+
+
 def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
@@ -100,7 +110,82 @@ async def delete_catalog_entry(catalog_id: str, actor: dict = Depends(require_re
     return {"result": "ok"}
 
 
-# ---------- Generator pipeline ----------
+# ---------- Industrial mode : bulk import + batch generate ----------
+LIST_FIELDS = ("objectives", "skills", "tools", "kpis")
+
+
+def _parse_row(row: dict) -> BusinessDefinition:
+    clean = {}
+    for k, v in row.items():
+        key = k.strip().lower()
+        if key in LIST_FIELDS:
+            clean[key] = [x.strip() for x in v.split(";")] if isinstance(v, str) else (v or [])
+            clean[key] = [x for x in clean[key] if x]
+        elif key in BusinessDefinition.model_fields:
+            clean[key] = v.strip() if isinstance(v, str) else v
+    return BusinessDefinition(**clean)
+
+
+@router.post("/bulk-import")
+async def bulk_import(payload: BulkImportPayload, actor: dict = Depends(require_registry_writer)):
+    """Import du catalogue maître (CSV ou JSON). Listes en CSV : séparées par ';'."""
+    rows = []
+    if payload.format == "json":
+        import json
+        try:
+            data = json.loads(payload.data)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=422, detail=f"Invalid JSON: {e}")
+        rows = data if isinstance(data, list) else [data]
+    elif payload.format == "csv":
+        import csv, io
+        reader = csv.DictReader(io.StringIO(payload.data))
+        rows = [dict(r) for r in reader]
+    else:
+        raise HTTPException(status_code=400, detail="format must be 'json' or 'csv'")
+
+    imported, errors = [], []
+    for i, row in enumerate(rows):
+        try:
+            d = _parse_row(row) if payload.format == "csv" else BusinessDefinition(**{
+                **row, **{f: row.get(f, []) for f in LIST_FIELDS}})
+            if d.autonomy_level not in AUTONOMY_LEVELS:
+                d.autonomy_level = "supervised"
+            if await db.catalog_entries.find_one({"name": d.name}) or await db.agents.find_one(
+                    {"name": {"$regex": f"^{re.escape(d.name)}$", "$options": "i"}}):
+                errors.append({"row": i + 1, "name": d.name, "error": "already exists (catalog or registry)"})
+                continue
+            entry = {"id": str(uuid.uuid4()), **d.model_dump(), "generated_agent_id": None, "created_at": now_iso()}
+            await db.catalog_entries.insert_one({**entry})
+            imported.append(d.name)
+        except Exception as e:
+            errors.append({"row": i + 1, "name": row.get("name", "?"), "error": str(e)[:200]})
+    await publish("factory.catalog_imported", actor["id"],
+                  {"imported": len(imported), "errors": len(errors), "format": payload.format})
+    return {"imported": len(imported), "names": imported, "errors": errors, "total_rows": len(rows)}
+
+
+@router.post("/generate-batch")
+async def generate_batch(payload: BatchGeneratePayload, actor: dict = Depends(require_registry_writer)):
+    """Production industrielle : génère une liste d'entrées catalogue. Production finale = validation humaine."""
+    if payload.all_pending:
+        entries = await db.catalog_entries.find({"generated_agent_id": None}, {"_id": 0, "id": 1}).to_list(500)
+        ids = [e["id"] for e in entries]
+    else:
+        ids = payload.catalog_ids
+    if not ids:
+        raise HTTPException(status_code=400, detail="No catalog entries to generate")
+    results, failures = [], []
+    for cid in ids:
+        try:
+            r = await generate_agent(GeneratePayload(catalog_id=cid), actor)
+            results.append({"catalog_id": cid, "agent_id": r["agent_id"], "status": r["status"]})
+        except HTTPException as e:
+            failures.append({"catalog_id": cid, "error": str(e.detail)[:200]})
+    await publish("factory.batch_generated", actor["id"], {"generated": len(results), "failed": len(failures)})
+    return {"generated": len(results), "agents": results, "failed": len(failures), "failures": failures,
+            "note": "Agents générés jusqu'à Beta — Ready For Assignment. Production sous validation humaine."}
+
 @router.post("/generate")
 async def generate_agent(payload: GeneratePayload, actor: dict = Depends(require_registry_writer)):
     steps = []

@@ -5,6 +5,7 @@ import api, { formatApiError } from "../lib/api";
 import { useLang } from "../lib/i18n";
 import { useAuth } from "../context/AuthContext";
 import { StatusBadge } from "../components/StatusBadge";
+import { AgentWorkspace } from "../components/AgentWorkspace";
 import { ArrowLeft, DownloadSimple } from "@phosphor-icons/react";
 
 const Section = ({ title, children }) => (
@@ -61,7 +62,7 @@ export default function AgentDetail() {
   };
 
   const versionList = [...new Set(versions.filter((v) => v.type === "version").map((v) => v.version))];
-  const tabs = ["overview", "adl", "timeline", "diff"];
+  const tabs = ["overview", "workspace", "adl", "timeline", "diff"];
   const canWrite = user?.role === "admin";
 
   return (
@@ -126,6 +127,8 @@ export default function AgentDetail() {
           </Section>
         </div>
       )}
+
+      {tab === "workspace" && <AgentWorkspace agentId={agentId} />}
 
       {tab === "adl" && (
         <pre data-testid="adl-yaml-view" className="border border-border rounded-sm bg-card p-5 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap text-emerald-300/90">

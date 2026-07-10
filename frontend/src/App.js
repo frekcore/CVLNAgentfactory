@@ -16,6 +16,10 @@ import Events from "./pages/Events";
 import Audit from "./pages/Audit";
 import Monitoring from "./pages/Monitoring";
 import Users from "./pages/Users";
+import Entities from "./pages/Entities";
+import Knowledge from "./pages/Knowledge";
+import Finance from "./pages/Finance";
+import FounderCenter from "./pages/FounderCenter";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -43,6 +47,10 @@ function App() {
               <Route path="/audit" element={<Audit />} />
               <Route path="/monitoring" element={<Monitoring />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/entities" element={<Entities />} />
+              <Route path="/knowledge" element={<Knowledge />} />
+              <Route path="/finance" element={<Finance />} />
+              <Route path="/founder" element={<FounderCenter />} />
             </Route>
           </Routes>
         </BrowserRouter>

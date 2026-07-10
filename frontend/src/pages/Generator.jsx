@@ -15,6 +15,9 @@ export default function Generator() {
   const [form, setForm] = useState(EMPTY);
   const [report, setReport] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [bulk, setBulk] = useState({ format: "json", data: "" });
+  const [bulkResult, setBulkResult] = useState(null);
+  const [batchResult, setBatchResult] = useState(null);
 
   const load = () => api.get("/generator/catalog").then((r) => setCatalog(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -49,6 +52,30 @@ export default function Generator() {
 
   const field = "w-full bg-background border border-input rounded-sm px-3 py-2 text-xs font-mono focus:outline-none focus:border-primary transition-colors duration-150";
   const label = "text-[10px] tracking-[0.2em] uppercase font-semibold text-muted-foreground block mb-1.5";
+
+  const bulkImport = async () => {
+    setBulkResult(null);
+    try {
+      const { data } = await api.post("/generator/bulk-import", bulk);
+      setBulkResult(data);
+      toast.success(`${data.imported} importé(s), ${data.errors.length} erreur(s)`);
+      setBulk({ ...bulk, data: "" }); load();
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+  };
+
+  const generateAll = async () => {
+    const pending = catalog.filter((c) => !c.generated_agent_id).length;
+    if (!pending) return toast.error("Aucune entrée en attente");
+    if (!window.confirm(`Générer ${pending} agent(s) du catalogue ? (jusqu'à Beta — Ready For Assignment)`)) return;
+    setGenerating(true); setBatchResult(null);
+    try {
+      const { data } = await api.post("/generator/generate-batch", { all_pending: true });
+      setBatchResult(data);
+      toast.success(`${data.generated} agent(s) généré(s), ${data.failed} échec(s)`);
+      load();
+    } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
+    finally { setGenerating(false); }
+  };
 
   return (
     <div data-testid="generator-page" className="space-y-8">
@@ -128,6 +155,45 @@ export default function Generator() {
             {catalog.length === 0 && <p className="px-6 py-8 text-center text-xs font-mono text-muted-foreground">{t("no_results")}</p>}
           </div>
         </div>
+      </div>
+
+      <div className="border border-amber-900/50 rounded-sm bg-card p-6 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <p className="text-[10px] tracking-[0.2em] uppercase font-semibold text-amber-400">Industrial Mode — import du catalogue maître (283 agents)</p>
+          <button data-testid="generate-all-btn" onClick={generateAll} disabled={generating}
+            className="border border-amber-700 text-amber-400 px-4 py-1.5 text-xs font-mono rounded-sm hover:bg-amber-950/40 transition-colors duration-150 disabled:opacity-40">
+            {generating ? "..." : `Générer tout le catalogue en attente (${catalog.filter((c) => !c.generated_agent_id).length})`}
+          </button>
+        </div>
+        <div className="flex gap-3 items-start">
+          <select data-testid="bulk-format-select" className={`${field} w-28`} style={{ width: "7rem" }} value={bulk.format}
+            onChange={(e) => setBulk({ ...bulk, format: e.target.value })}>
+            <option value="json">JSON</option>
+            <option value="csv">CSV</option>
+          </select>
+          <textarea data-testid="bulk-data-input" className={`${field} h-24 resize-none flex-1`}
+            placeholder={bulk.format === "json"
+              ? '[{"name":"...","category":"...","pole":"...","entity":"...","mission":"...","objectives":[],"skills":[],"tools":[],"autonomy_level":"supervised","kpis":[]}]'
+              : "name,category,pole,entity,mission,objectives,skills,tools,autonomy_level,kpis  (listes séparées par ;)"}
+            value={bulk.data} onChange={(e) => setBulk({ ...bulk, data: e.target.value })} />
+          <button data-testid="bulk-import-btn" onClick={bulkImport} disabled={!bulk.data}
+            className="bg-primary text-primary-foreground px-4 py-2 text-xs font-semibold rounded-sm hover:opacity-90 transition-opacity duration-150 disabled:opacity-40">
+            Importer
+          </button>
+        </div>
+        {bulkResult && (
+          <div data-testid="bulk-result" className="text-xs font-mono space-y-1">
+            <p className="text-emerald-400">{bulkResult.imported}/{bulkResult.total_rows} importé(s) : {bulkResult.names.slice(0, 8).join(", ")}{bulkResult.names.length > 8 ? "…" : ""}</p>
+            {bulkResult.errors.map((e, i) => <p key={i} className="text-red-400">ligne {e.row} ({e.name}) : {e.error}</p>)}
+          </div>
+        )}
+        {batchResult && (
+          <div data-testid="batch-result" className="text-xs font-mono space-y-1">
+            <p className="text-emerald-400">{batchResult.generated} généré(s) — {batchResult.note}</p>
+            {batchResult.agents.slice(0, 12).map((a) => <span key={a.agent_id} className="text-primary mr-3">{a.agent_id}</span>)}
+            {batchResult.failures.map((f, i) => <p key={i} className="text-red-400">{f.catalog_id} : {f.error}</p>)}
+          </div>
+        )}
       </div>
 
       {report && (
