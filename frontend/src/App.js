@@ -25,6 +25,7 @@ import ObservationRoom from "./pages/ObservationRoom";
 import CommandMobile from "./pages/CommandMobile";
 import Cognitive from "./pages/Cognitive";
 import Governance from "./pages/Governance";
+import Objectives from "./pages/Objectives";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -61,6 +62,7 @@ function App() {
               <Route path="/observation" element={<ObservationRoom />} />
               <Route path="/cognitive" element={<Cognitive />} />
               <Route path="/governance" element={<Governance />} />
+              <Route path="/objectives" element={<Objectives />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -32,6 +32,8 @@ import missions_routes
 import cognitive_routes
 import continuity_routes
 import gate_routes
+import doctrine_registry_routes
+import objectives_routes
 from seed_workforce import seed_workforce
 from doctrine import seed_doctrine
 
@@ -44,6 +46,7 @@ async def lifespan(app: FastAPI):
     await seed_all()
     await seed_doctrine()
     await seed_workforce()
+    await doctrine_registry_routes.seed_doctrine_registry()
     logger.info("CVLN Agent Factory — Core Services started")
     yield
     client.close()
@@ -93,6 +96,8 @@ api_router.include_router(cognitive_routes.router)
 api_router.include_router(continuity_routes.router)
 api_router.include_router(gate_routes.router)
 api_router.include_router(gate_routes.journal_router)
+api_router.include_router(doctrine_registry_routes.router)
+api_router.include_router(objectives_routes.router)
 
 app.include_router(api_router)
 

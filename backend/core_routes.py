@@ -49,12 +49,24 @@ async def publish_event(payload: PublishPayload, actor: dict = Depends(get_curre
 
 
 # ---------- Memory Service ----------
+MEMORY_SCOPES = ("session", "persistent", "operational", "strategic", "doctrinal", "learning")
+MEMORY_LAYERS_V2 = {
+    "doctrinal": "Mémoire doctrinale — règles permanentes, gouvernance, interdictions",
+    "strategic": "Mémoire stratégique — vision, objectifs long terme, décisions majeures",
+    "operational": "Mémoire opérationnelle — tâches, missions, états",
+    "learning": "Mémoire d'apprentissage — retours d'expérience, corrections, optimisations",
+}
+
+
 class MemoryWrite(BaseModel):
     agent_id: str
     entity: str
     scope: str = "session"
     key: str
     value: dict | str | list | int | float | bool
+    source: str = ""
+    confidence: Optional[int] = None
+    provenance: str = ""
 
 
 async def log_memory_access(actor, agent_id, operation, key=""):
@@ -67,6 +79,43 @@ async def log_memory_access(actor, agent_id, operation, key=""):
 async def memory_logs(limit: int = 100, actor: dict = Depends(get_current_actor)):
     logs = await db.memory_access_logs.find({}, {"_id": 0}).sort("timestamp", -1).to_list(min(limit, 500))
     return logs
+
+
+@router.get("/memory-layers/summary")
+async def memory_layers_summary(actor: dict = Depends(get_current_actor)):
+    """Memory Layer v2 — vue par les 4 couches (compat ascendante : session/persistent en legacy)."""
+    pipeline = [{"$group": {"_id": "$scope", "count": {"$sum": 1},
+                            "validated": {"$sum": {"$cond": [{"$eq": ["$validation.status", "validated"]}, 1, 0]}},
+                            "avg_confidence": {"$avg": "$confidence"}}}]
+    by_scope = {r["_id"]: r async for r in db.memory_entries.aggregate(pipeline)}
+    layers = []
+    for scope, label in MEMORY_LAYERS_V2.items():
+        r = by_scope.get(scope, {})
+        layers.append({"layer": scope, "label": label, "entries": r.get("count", 0),
+                       "validated": r.get("validated", 0),
+                       "avg_confidence": round(r["avg_confidence"], 1) if r.get("avg_confidence") else None})
+    legacy = {s: by_scope.get(s, {}).get("count", 0) for s in ("session", "persistent")}
+    return {"layers": layers, "legacy_scopes": legacy,
+            "total_entries": sum(r.get("count", 0) for r in by_scope.values())}
+
+
+@router.post("/memory/entries/{entry_id}/validate")
+async def validate_memory_entry(entry_id: str, actor: dict = Depends(require_admin)):
+    entry = await db.memory_entries.find_one({"id": entry_id}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Memory entry not found")
+    ts = now_iso()
+    await db.memory_entries.update_one(
+        {"id": entry_id},
+        {"$set": {"validation": {"status": "validated", "validated_by": f'human:{actor["id"]}',
+                                 "validated_at": ts}, "updated_at": ts}})
+    await log_memory_access(actor, entry["agent_id"], "validate", entry["key"])
+    from activity_journal import journal
+    await journal("decision_humaine", actor,
+                  f"Entrée mémoire validée : {entry['key']} ({entry['scope']}, agent {entry['agent_id']})",
+                  source="memory-layer", agent_id=entry["agent_id"],
+                  evidence={"entry_id": entry_id}, result="validated")
+    return {"result": "validated", "entry_id": entry_id}
 
 
 @router.get("/memory/{agent_id}")
@@ -87,13 +136,18 @@ async def write_memory(payload: MemoryWrite, actor: dict = Depends(get_current_a
     if actor["type"] == "human" and actor["role"] == "reader":
         await log_authz(actor, "memory_write", f"agent:{payload.agent_id}", False, "readers cannot write memory")
         raise HTTPException(status_code=403, detail="Readers cannot write to memory")
-    if payload.scope not in ("session", "persistent", "operational", "strategic"):
-        raise HTTPException(status_code=400, detail="scope must be 'session', 'persistent', 'operational' or 'strategic'")
+    if payload.scope not in MEMORY_SCOPES:
+        raise HTTPException(status_code=400, detail=f"scope must be one of {MEMORY_SCOPES}")
+    if payload.confidence is not None and not (0 <= payload.confidence <= 100):
+        raise HTTPException(status_code=400, detail="confidence must be between 0 and 100")
     ts = now_iso()
     await db.memory_entries.update_one(
         {"agent_id": payload.agent_id, "key": payload.key, "scope": payload.scope},
-        {"$set": {"value": payload.value, "entity": payload.entity, "updated_at": ts},
-         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": ts, "owner": actor["id"]}},
+        {"$set": {"value": payload.value, "entity": payload.entity, "updated_at": ts,
+                  "source": payload.source, "confidence": payload.confidence,
+                  "provenance": payload.provenance},
+         "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": ts, "owner": actor["id"],
+                          "validation": {"status": "none", "validated_by": None, "validated_at": None}}},
         upsert=True)
     await log_memory_access(actor, payload.agent_id, "write", payload.key)
     await publish("memory.written", actor["id"], {"agent_id": payload.agent_id, "key": payload.key, "scope": payload.scope})
