@@ -1,0 +1,43 @@
+{
+  "summary": "CVLN-GOV-PHASE1-001 (Permission Gate v2 + Activity Journal v2) — full backend + frontend validation. Backend pytest suite /app/backend/tests/test_gate_journal.py: 21/21 GREEN through the public ingress. Coverage: GET /api/gate/levels (6 niveaux + 6 critical_actions + default_action_levels), POST /api/gate/check niveaux 1-4 (observe/analyze/propose/prepare) par SERVICE AGT-000 avec vérification que l'entrée journal du bon type (observation/analyse/proposition) est créée, escalade action critique expense par SERVICE (allowed=false, decision=pending_human_validation, validation_request_id présent, validation_request status=pending, journal action_bloquee result=escalated, notification niveau 2 persistée avec meta.validation_request_id), décision humaine approve → journal decision_humaine → re-check avec validation_id → allowed + journal action_executee, décision rejected → re-check reste bloqué (nouveau validation_request_id différent, i.e. nouvelle escalade), admin direct sur action critique (validation implicite : decision_humaine + action_executee), règle agent AGT-011/analyze level 6 → check bloqué (decision=forbidden) + journal action_bloquee → DELETE règle → re-check allowed, garde POST /api/gate/rules avec action critique 'expense' level<5 → 400, non-admin (SERVICE) POST /api/gate/rules → 403, GET /api/gate/refusals (type=action_bloquee), GET /api/journal/types (8 types exact), GET /api/journal?type=decision_humaine (filtre correct), GET /api/journal/unified (les 3 origines journal_v2 + audit_logs + events présentes, tri desc par timestamp), intégration missions (deliver → action_executee avec mission_id, validate → decision_humaine avec mission_id), non-régression POST /api/notifications/test → HTTP 200 {pushed:false, push_error} (fix Phase 0 confirmé). Frontend Playwright sur viewport 1920x1080: login admin OK, nav-governance visible, /governance chargé, onglet Journal v2 avec journal-table non vide et journal-type-filter fonctionnel (12 lignes decision_humaine après filtrage), onglet Refus (10 lignes action_bloquee), onglet Règles Gate (formulaire admin rule-scope/rule-action-type/rule-level opérationnel — règle action_type/analyze/level=4 créée avec succès et visible en base via GET /api/gate/rules, toast 'Règle créée' émis), onglet Validations : approve du validation_request pré-créé (TEST_FE_governance_pending_validation) → statut passe de pending à approved dans l'UI en direct + toast 'Validation approuvée'. Navigation non-régression : Dashboard, Agents, Audit chargent (nav-missions_nav accessible ; l'ID nav testid diffère du littéral 'nav-missions' de la review mais la page /missions est bien routée).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Governance / Règles Gate", "issues": ["Console React hydration warning: <span> ne peut pas être enfant de <option> — provoqué par l'injection d'un <span data-ve-dynamic='true'> à l'intérieur de chaque <option> dans les <select> rule-level/rule-action-type/rule-scope (probable outil d'instrumentation SSR/dev). Non-bloquant fonctionnellement (les selects fonctionnent, les rules se créent correctement), mais pollue la console et casserait un vrai SSR. À investiguer côté toolchain / paramètres du babel-plugin d'instrumentation."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_gate_journal.py",
+    "/app/test_reports/pytest/gate_journal_results.xml"
+  ],
+  "action_items": [
+    "Optionnel : nettoyer la console React (warning hydration <span> in <option>) — instrumentation dev qui ajoute des <span data-ve-dynamic='true'> dans chaque <option>. Filtrer les <option> dans le plugin d'instrumentation ou remplacer les <select> natifs par le composant shadcn Select qui évite ce piège.",
+    "Cosmétique : le review demande data-testid='nav-missions' mais le code utilise 'nav-missions_nav' (dérivé de la clé i18n 'missions_nav'). Aligner en renommant la clé i18n en 'missions' (ou expliciter dans le review). Non-bloquant : la page /missions est bien routée et chargée."
+  ],
+  "critical_code_review_comments": [
+    "gate_routes.py — résolution règles → agent > mission > global > défaut : bien pensé et symétrique. Override automatique level=5 pour actions critiques (ligne 83-84) garantit qu'aucune règle ne peut contourner Laurent — excellent choix architectural.",
+    "gate_routes.py — /gate/check accepte validation_id : la vérif (ligne 116-123) contrôle bien status=='approved' ET action_type identique, ce qui empêche la réutilisation croisée d'un validation_id d'un autre action_type. Bon garde-fou.",
+    "gate_routes.py — /gate/rules POST : la garde 'action critique level<5' (ligne 171-173) reproduit la même règle non-contournable au niveau création. Cohérent avec l'override runtime.",
+    "gate_routes.py — /journal/unified : fusion en lecture seule des 3 origines sans migration destructive — respecte exactement la contrainte 'compat ascendante'. Le tri desc final par timestamp est correct et déterministe.",
+    "activity_journal.py — helper journal() unique, single source of truth pour les 8 types. DRY respecté. Sanitize entry_type via fallback 'observation' si type inconnu (ligne 16). Bon garde-fou.",
+    "missions_routes.py — hooks journal aux lignes 164 (deliver → action_executee) et 189 (validate → decision_humaine) : intégrés au bon endroit, avec mission_id. Traçabilité end-to-end assurée.",
+    "Governance.jsx — 187 lignes, monolithique mais lisible. Les 4 onglets sont bien découpés. Suggestion d'amélioration (non-bloquante) : extraire JournalTable, RuleForm et ValidationRow en composants séparés si la page grossit.",
+    "Governance.jsx — l'appel useEffect(load, [typeFilter]) recharge TOUT (journal + types + rules + levels + validations) à chaque changement de filtre. Coût réseau OK pour l'instant mais si le journal grossit, séparer les fetches (load types/levels une fois, load entries sur typeFilter, load rules/validations lazy par onglet).",
+    "gate_routes.py — decide_validation ne journalise pas séparément l'entrée 'action bloquée résolue' côté demandeur ; le journal decision_humaine côté admin est suffisant grâce à evidence.validation_request_id. Cohérent avec l'audit trail unifié."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_gate_journal.py (nouveau fichier — 21 tests pytest couvrant PHASE 1)"
+  ],
+  "success_rate": {"backend": "100% (21/21 test_gate_journal.py)", "frontend": "100% flows critiques (Journal v2 + filtre + Refus + Rules création + Validations approve)"},
+  "test_credentials": "Admin: laurent@cvln.fr / CVLNfactory2026! (from /app/memory/test_credentials.md). Service token AGT-000: svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c.",
+  "seed_data_creation": "Créés durant les tests (tous préfixés TEST_ sauf validation_request 'a4dc7441-b8c0-4679-b3d5-33632dc1b65c' créé via curl main-agent pour le test FE approve, désormais status=approved) : ~15 entrées activity_journal, ~4 validation_requests (2 approved TEST_FE + TEST_expense_escalation, 2 rejected TEST_expense_reject), 1 règle gate (analyze level=4) créée puis désactivée en cleanup. 1 mission TEST_mission créée puis livrée puis validated. 2 notifications level 2 (escalade) + 1 level 3 (Test CVLN Command non-régression). Aucun agent archivé, aucune donnée production altérée.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "PHASE 1 CVLN-GOV-PHASE1-001 est fonctionnellement complète et testée bout-en-bout (backend 21/21, frontend 4 onglets validés dans l'UI). test_gate_journal.py peut être ré-exécuté sans effet de bord — tous les summaries sont préfixés TEST_ avec timestamp, les tests re-créent leurs propres validation_requests et règles. La règle 'analyze level=4' créée dans le test FE a été nettoyée. Une seule règle DELETE_deactivated persiste (id 80941caf-...) — normal, DELETE désactive et conserve l'historique. Warning hydration console React à corriger dans une phase cosmétique. Prochaine phase : Autonomous Runtime PHASE 4 qui réutilisera gate_check() (déjà exposé) — vérifier que la signature reste stable.",
+  "rca of the issue": "N/A — aucune issue bloquante détectée. Les 2 sujets mineurs remontés (warning hydration <span>/<option> et testid nav-missions_nav vs nav-missions) sont cosmétiques et n'affectent pas la fonctionnalité PHASE 1."
+}

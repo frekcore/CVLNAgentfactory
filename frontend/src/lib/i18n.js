@@ -3,7 +3,7 @@ import { createContext, useContext, useState } from "react";
 const dict = {
   fr: {
     dashboard: "Tableau de bord", agents: "Annuaire des agents", adl_editor: "Éditeur ADL",
-    generator: "Générateur", doctrine: "Doctrine", events: "Event Bus", audit: "Audit",
+    generator: "Générateur", doctrine: "Doctrine", events: "Event Bus", audit: "Audit", governance: "Gouvernance",
     monitoring: "Supervision", users: "Utilisateurs", logout: "Déconnexion",
     login_title: "Console Agent Factory", login_subtitle: "Agent Operating System Layer",
     email: "Email", password: "Mot de passe", sign_in: "Se connecter",
@@ -67,7 +67,7 @@ const dict = {
   },
   en: {
     dashboard: "Dashboard", agents: "Agent directory", adl_editor: "ADL Editor",
-    generator: "Generator", doctrine: "Doctrine", events: "Event Bus", audit: "Audit",
+    generator: "Generator", doctrine: "Doctrine", events: "Event Bus", audit: "Audit", governance: "Governance",
     monitoring: "Monitoring", users: "Users", logout: "Log out",
     login_title: "Agent Factory Console", login_subtitle: "Agent Operating System Layer",
     email: "Email", password: "Password", sign_in: "Sign in",

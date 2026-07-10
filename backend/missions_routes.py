@@ -8,6 +8,7 @@ from database import db
 from auth_utils import get_current_actor, require_registry_writer, require_admin, log_authz
 from event_bus import publish
 from notifier import notify
+from activity_journal import journal
 
 router = APIRouter(prefix="/missions", tags=["mission-engine"])
 
@@ -160,6 +161,8 @@ async def deliver_mission(mission_id: str, payload: DeliverPayload, actor: dict 
                                            "delivery": {**payload.model_dump(),
                                                         "delivered_by": f'{actor["type"]}:{actor["id"]}',
                                                         "delivered_at": ts}}})
+    await journal("action_executee", actor, f"Mission livrée : {mission['title']}", source="mission-engine",
+                  mission_id=mission_id, evidence={"summary": payload.summary[:200]}, result="delivered")
     await publish("agent.mission_delivered", actor["id"], {"mission_id": mission_id, "title": mission["title"]})
     await notify(2, "Mission livrée — validation requise",
                  f"« {mission['title']} » ({mission['entity']}) livrée par {', '.join(mission['agent_ids'])}. "
@@ -183,6 +186,9 @@ async def validate_mission(mission_id: str, decision: str = "validated", actor: 
                                            "validated_at": ts, "updated_at": ts}})
     if decision == "validated":
         await db.agent_tasks.update_many({"mission_id": mission_id}, {"$set": {"status": "done", "updated_at": ts}})
+    await journal("decision_humaine", actor,
+                  f"Mission {('VALIDÉE' if decision == 'validated' else 'REJETÉE')} : {mission['title']}",
+                  source="mission-engine", mission_id=mission_id, result=decision)
     await log_authz(actor, "mission_validate", f"mission:{mission_id}", True, decision)
     await publish("agent.mission_validated", actor["id"], {"mission_id": mission_id, "decision": decision})
     return {"result": decision}

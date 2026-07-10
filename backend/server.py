@@ -31,6 +31,7 @@ import notification_routes
 import missions_routes
 import cognitive_routes
 import continuity_routes
+import gate_routes
 from seed_workforce import seed_workforce
 from doctrine import seed_doctrine
 
@@ -90,6 +91,8 @@ api_router.include_router(notification_routes.router)
 api_router.include_router(missions_routes.router)
 api_router.include_router(cognitive_routes.router)
 api_router.include_router(continuity_routes.router)
+api_router.include_router(gate_routes.router)
+api_router.include_router(gate_routes.journal_router)
 
 app.include_router(api_router)
 

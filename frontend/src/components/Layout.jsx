@@ -4,7 +4,7 @@ import { useLang } from "../lib/i18n";
 import {
   SquaresFour, Robot, Code, Factory, Scroll, Broadcast, ShieldCheck,
   UsersThree, SignOut, Pulse, CalendarCheck, Crown, Buildings, BookOpen, CurrencyEur,
-  Target, Eye, DeviceMobile, Brain,
+  Target, Eye, DeviceMobile, Brain, Gavel,
 } from "@phosphor-icons/react";
 
 const NAV = [
@@ -22,6 +22,7 @@ const NAV = [
   { to: "/doctrine", key: "doctrine", icon: Scroll },
   { to: "/events", key: "events", icon: Broadcast },
   { to: "/audit", key: "audit", icon: ShieldCheck },
+  { to: "/governance", key: "governance", icon: Gavel },
   { to: "/monitoring", key: "monitoring", icon: Pulse },
 ];
 
