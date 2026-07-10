@@ -20,6 +20,10 @@ import Entities from "./pages/Entities";
 import Knowledge from "./pages/Knowledge";
 import Finance from "./pages/Finance";
 import FounderCenter from "./pages/FounderCenter";
+import Missions from "./pages/Missions";
+import ObservationRoom from "./pages/ObservationRoom";
+import CommandMobile from "./pages/CommandMobile";
+import Cognitive from "./pages/Cognitive";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -35,6 +39,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/command" element={<Protected><CommandMobile /></Protected>} />
             <Route element={<Protected><Layout /></Protected>}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/agents" element={<Agents />} />
@@ -51,6 +56,9 @@ function App() {
               <Route path="/knowledge" element={<Knowledge />} />
               <Route path="/finance" element={<Finance />} />
               <Route path="/founder" element={<FounderCenter />} />
+              <Route path="/missions" element={<Missions />} />
+              <Route path="/observation" element={<ObservationRoom />} />
+              <Route path="/cognitive" element={<Cognitive />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -8,6 +8,7 @@ from database import db
 from adl_schema import parse_adl_yaml, adl_to_yaml, allowed_transitions, semver_tuple, LifecycleStatus
 from auth_utils import get_current_actor, require_registry_writer, log_authz
 from event_bus import publish
+from notifier import notify
 
 router = APIRouter(prefix="/registry", tags=["registry"])
 
@@ -197,4 +198,10 @@ async def transition_lifecycle(agent_id: str, payload: LifecyclePayload,
                     f"{agent['status']} → {payload.target_status}")
     topic = "agent.archived" if payload.target_status == "Archive" else "agent.updated"
     await publish(topic, actor["id"], {"agent_id": agent_id, "from": agent["status"], "to": payload.target_status})
+    if payload.target_status == "Beta":
+        await notify(2, f"{agent_id} en Beta — validation Production possible",
+                     f"{agent['name']} attend ta validation pour passer en Production.",
+                     source="registry", meta={"agent_id": agent_id})
+    elif payload.target_status == "Production":
+        await notify(4, f"{agent_id} en Production", f"{agent['name']} est opérationnel.", source="registry")
     return {"result": "ok", "agent_id": agent_id, "status": payload.target_status}

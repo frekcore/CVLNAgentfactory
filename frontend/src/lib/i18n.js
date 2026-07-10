@@ -62,7 +62,8 @@ const dict = {
     pending_validations: "Validations en attente", nothing_to_validate: "Rien à valider — le groupe tourne",
     new_proposal: "nouvelle proposition", propose: "Proposer", proposal_created: "Proposition créée",
     knowledge_pending_link: "connaissance(s) à valider", open_tasks_label: "Tâches ouvertes",
-    autonomy: "Autonomie",
+    autonomy: "Autonomie", missions_nav: "Missions", observation_nav: "Observation Room",
+    cvln_command: "CVLN Command (mobile)", cognitive_nav: "Interface Cognitive",
   },
   en: {
     dashboard: "Dashboard", agents: "Agent directory", adl_editor: "ADL Editor",
@@ -125,7 +126,8 @@ const dict = {
     pending_validations: "Pending validations", nothing_to_validate: "Nothing to validate — the group is running",
     new_proposal: "new proposal", propose: "Propose", proposal_created: "Proposal created",
     knowledge_pending_link: "knowledge item(s) to validate", open_tasks_label: "Open tasks",
-    autonomy: "Autonomy",
+    autonomy: "Autonomy", missions_nav: "Missions", observation_nav: "Observation Room",
+    cvln_command: "CVLN Command (mobile)", cognitive_nav: "Cognitive Interface",
   },
 };
 

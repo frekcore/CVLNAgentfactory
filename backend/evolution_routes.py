@@ -6,6 +6,7 @@ from typing import Optional
 from database import db
 from auth_utils import get_current_actor, require_registry_writer, require_admin, log_authz
 from event_bus import publish
+from notifier import notify
 
 router = APIRouter(prefix="/evolution", tags=["improvement-loop"])
 
@@ -45,6 +46,9 @@ async def create_proposal(payload: ProposalPayload, actor: dict = Depends(requir
     await db.evolution_proposals.insert_one({**proposal})
     await publish("factory.evolution_proposed", actor["id"],
                   {"proposal_id": proposal["id"], "type": payload.type, "title": payload.title})
+    await notify(2, "Proposition d'évolution à valider",
+                 f"[{payload.type}] {payload.title} — proposé par {proposal['proposed_by']}",
+                 source="improvement-loop", meta={"proposal_id": proposal["id"]})
     return proposal
 
 

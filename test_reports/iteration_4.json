@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 4 — Full-stack test of the 5 new layers (Founder Notifications, Mission Engine + Orchestrator + Performance, Cognitive Interface, Continuity Layer, CVLN Command PWA). Backend pytest suite created at /app/backend/tests/test_iteration4.py: 25/25 GREEN across all layers. Frontend Playwright: login OK; Cognitive flow (send → LLM/internal reply → classification badge = 'rule' → confirm-action → ✓ exécuté) OK; Missions flow (orchestrate strategy → create → advance → deliver → validate admin) OK; Observation Room detail on AGT-000 OK; Mobile PWA /command page renders 4/4 expected sections; manifest.json / sw.js / icon-192.png / icon-512.png all HTTP 200. Non-regression nav (dashboard, founder_center, agents, knowledge_nav, finance_nav) OK. Real backup .gz files present in /app/backups (2 files, 20 KB and 23 KB).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/notifications/test", "issue": "Backend correctly returns HTTP 502 with JSON detail 'founder chat_id not discovered…', but the Cloudflare/ingress in front of the app intercepts origin 502 responses and REPLACES the body with a generic HTML 'Bad gateway' page. Frontend therefore cannot parse the intended JSON detail. Backend behaviour is spec-compliant, ingress is not — recommend switching to a non-intercepted status (e.g. 200 with {pushed:false, push_error:'…'} or 424 Failed Dependency) so the UI can display the real cause. See UI bug 'test-notification-btn' below."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CommandMobile → test-notification-btn", "issue": "Toast displays raw Cloudflare HTML error text ('The origin web server returned an invalid or incomplete response to Cloudflare. This typically indicates the origin is overloaded or misconfigured.') instead of the expected clean CVLN error ('founder chat_id not discovered — send /start to the bot'). Root cause = the ingress intercepts the backend's HTTP 502. UX is degraded. The Telegram-not-connected condition is expected, but the message the founder sees is not a 'toast d'erreur propre'.", "selector": "[data-testid=\"test-notification-btn\"]", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Knowledge + Entities (preview mode only)", "issues": ["Same pre-existing React hydration warning as iterations 2-3 — visual-editor injects <span data-ve-dynamic style={display:contents}> inside <option> elements (knowledge-agents-select, link-agent-select). Preview-only noise; absent from production build."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/iteration4_results.xml",
+    "/app/backend/tests/test_workforce_layer.py",
+    "/app/backend/tests/test_daily_closing.py",
+    "/app/backend/tests/backend_test.py"
+  ],
+  "action_items": [
+    "Fix CommandMobile.testNotif error handler OR switch backend /api/notifications/test to a non-502 failure code (recommended: 200 with body {pushed:false, push_error:'…'} — then the mobile UI can render the real reason instead of the Cloudflare wall-of-text). Same fix improves the Founder Center UX.",
+    "Consider adding a data-testid or role='alert' toast text length guard in CommandMobile so a very long error body doesn't take a full screen on mobile."
+  ],
+  "critical_code_review_comments": [
+    "notification_routes.send_test raises HTTPException(status_code=502) on push failure. In containerised setups behind Cloudflare/nginx-ingress, origin 502 is masked with a static HTML page — the body is lost. Prefer 424 (Failed Dependency) or 200 with {pushed:false, push_error}. Backend logic is otherwise correct: the notification IS persisted in db.notifications before the HTTPException is raised.",
+    "cognitive_engine.classify_message uses substring `in low` — 'principe' matches 'prince', 'décide' matches nothing dangerous here but is worth watching. For now spec-aligned.",
+    "cognitive_routes.confirm_action assigns tasks to the agent with the best keyword overlap (fallback AGT-000). Works, but agents in Archive are excluded — good. Consider also excluding Draft/Prototype for production usage.",
+    "missions_routes.orchestrate — the mission_type detector uses `any(w in words for w in (...))` where the trigger set contains 'marketing' → route to strategy. 'analyse' is a stopword so a request like 'Analyse une plateforme applicative' (containing 'application/plateforme') correctly wins as 'application'. Good.",
+    "missions_routes.deliver — after delivery, backend sends notify(2, …) which pushes to Telegram — subject to the same Cloudflare-swallows-502 issue in production if push fails (but notify() catches exceptions internally, so /deliver won't crash).",
+    "continuity_routes.create_backup — .to_list(50000) hard cap; for events collection may truncate silently in >50k events environments. Consider streaming/paginating.",
+    "continuity_routes — no admin scoping on GET /continuity/backups directory listing on disk (only DB list). If disk contents drift from DB records the response omits them silently. Consider os.listdir(BACKUP_DIR) reconciliation.",
+    "notifier.notify — swallows send_telegram exceptions and writes push_error onto the record but returns pushed=False; endpoint then raises 502 which triggers ingress interception. See action item.",
+    "cognitive_routes.temporal — uses ISO-string comparison with $gte on 'timestamp'/'created_at'/'updated_at'. Only safe if all writers write ISO 8601 in UTC (checked across notifier, missions, tasks — consistent). No bug, just a fragile contract.",
+    "CommandMobile.jsx — 'testNotif' surfaces the raw fetch error message as toast content; when the response is HTML (Cloudflare 502) the entire HTML paragraph shows in the toast. Truncate/normalise the error text or check content-type before display."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration4.py (created — 25 pytest cases)"
+  ],
+  "success_rate": {"backend": "100% (25/25)", "frontend": "100% target flows verified (Cognitive · Missions · Observation · Mobile PWA · non-regression nav) with 1 UX bug on error rendering"},
+  "test_credentials": "Admin: laurent@cvln.fr / CVLNfactory2026! · svc AGT-000: svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c · Reader created on the fly: TEST_it4_reader_<epoch>@cvln.fr / ReaderPass123!",
+  "seed_data_creation": "Per-run RUN suffix (6-digit epoch). Left behind (safe TEST_-prefixed, main agent can clean): 1 reader user, 1 mission 'TEST it4 mission <RUN>' validated, ~2 P0 tasks tied to that mission (now done), 3-4 cognitive messages + 1 conversation, 1 evolution_proposals doc 'Règle doctrine proposée : Nouvelle règle : toujours vérifier les KPIs...', 1 agent_tasks 'Crée un rapport hebdomadaire...', 2 real gzip backups in /app/backups (~40 KB total), 2 notifications (1x Test CVLN Command level 3 + 1x N2 'Mission livrée'). NO existing missions/data of the human user were deleted; NO agents were archived.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_iteration4.py uses per-run RUN suffix and is idempotent across re-runs. Pytest must run with `-n 0` (session-scoped fixtures share auth). All 4 backend suites (backend_test.py + test_daily_closing.py + test_workforce_layer.py + test_iteration4.py) can be run in one pass with `-n 0`. Important environmental note: the Cloudflare ingress swallows origin 502 bodies — DO NOT rely on r.json() from the backend when the response code is 502; assert only the status code and re-verify persistence via a subsequent GET. The Telegram push failure is EXPECTED (bot token configured, founder /start not sent).",
+  "rca of the issue": "UX bug on test-notification-btn: (1) notification_routes.send_test raises HTTPException(status_code=502) when push fails; (2) Cloudflare in front of the preview URL treats any origin 502 as a bad-gateway condition and REPLACES the body with a static HTML 'Bad gateway' page (~7 KB HTML); (3) CommandMobile.testNotif() reads err.detail/text and pushes the raw string into the toast — resulting in the toast rendering the full Cloudflare HTML text. Reproduction: log in as admin, open /command on mobile (390x844), click 'Notification test' → toast reads 'The origin web server returned an invalid or incomplete response…'. Mitigation options for the main agent, in order of preference: (a) change backend response to HTTP 200 with body {pushed:false, push_error:'founder chat_id not discovered — send /start'} — cleanest, no ingress interference; (b) use HTTP 424 (Failed Dependency), rarely intercepted; (c) frontend-side normalise: if response.ok is false AND content-type is text/html, replace the toast text with a generic 'Push Telegram indisponible — envoyez /start au bot @cvln puis reconnectez' message."
+}

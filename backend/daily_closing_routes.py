@@ -6,6 +6,7 @@ from typing import List, Optional
 from database import db
 from auth_utils import get_current_actor, require_registry_writer, log_authz
 from event_bus import publish
+from notifier import notify
 
 router = APIRouter(prefix="/daily", tags=["daily-closing"])
 
@@ -209,6 +210,14 @@ async def close_day(payload: ClosePayload, actor: dict = Depends(require_registr
                                                           "reports": len(reports), "missing": len(missing)})
     await publish("system.ready.next.day", actor["id"], {"date": date, "priorities": len(global_report["next_day_plan"]["priorities"])})
     steps.append({"step": "system_ready_next_day", "status": "ok", "detail": "Cycle suivant préparé — system.ready.next.day publié"})
+
+    await notify(3, f"Daily Executive Report — {date}",
+                 global_report["executive_report"]["headline"], source="daily-closing",
+                 meta={"date": date})
+    if interventions:
+        await notify(2, "Interventions humaines requises",
+                     " · ".join(global_report["next_day_plan"]["critical_missions"][:5]),
+                     source="daily-closing", meta={"date": date})
 
     global_report["steps"] = steps
     return global_report

@@ -7,6 +7,7 @@ from typing import Optional
 from database import db, client
 from auth_utils import get_current_actor, require_admin, log_authz
 from event_bus import publish, VALID_TOPICS_PREFIXES
+from notifier import notify
 
 router = APIRouter(tags=["core"])
 START_TIME = time.time()
@@ -134,6 +135,7 @@ async def health(actor: dict = Depends(get_current_actor)):
     services.append({"name": "Monitoring", "status": "healthy", "detail": f"uptime {int(time.time() - START_TIME)}s"})
     if not db_ok:
         await publish("monitoring.alert", "monitoring", {"severity": "critical", "message": "MongoDB unreachable"})
+        await notify(1, "Service critique en panne", "MongoDB injoignable — Registry, Memory et Event Bus impactés.", source="monitoring")
     return {"services": services, "database": "up" if db_ok else "down", "uptime_seconds": int(time.time() - START_TIME)}
 
 

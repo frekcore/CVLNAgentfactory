@@ -4,11 +4,15 @@ import { useLang } from "../lib/i18n";
 import {
   SquaresFour, Robot, Code, Factory, Scroll, Broadcast, ShieldCheck,
   UsersThree, SignOut, Pulse, CalendarCheck, Crown, Buildings, BookOpen, CurrencyEur,
+  Target, Eye, DeviceMobile, Brain,
 } from "@phosphor-icons/react";
 
 const NAV = [
   { to: "/", key: "dashboard", icon: SquaresFour, end: true },
+  { to: "/cognitive", key: "cognitive_nav", icon: Brain },
   { to: "/agents", key: "agents", icon: Robot },
+  { to: "/missions", key: "missions_nav", icon: Target },
+  { to: "/observation", key: "observation_nav", icon: Eye },
   { to: "/editor", key: "adl_editor", icon: Code },
   { to: "/generator", key: "generator", icon: Factory },
   { to: "/daily", key: "daily_closing", icon: CalendarCheck },
@@ -27,7 +31,9 @@ export const Layout = () => {
   const navigate = useNavigate();
 
   const nav = user?.role === "admin"
-    ? [NAV[0], { to: "/founder", key: "founder_center", icon: Crown }, ...NAV.slice(1), { to: "/users", key: "users", icon: UsersThree }]
+    ? [NAV[0], { to: "/founder", key: "founder_center", icon: Crown },
+       { to: "/command", key: "cvln_command", icon: DeviceMobile }, ...NAV.slice(1),
+       { to: "/users", key: "users", icon: UsersThree }]
     : NAV;
 
   return (
