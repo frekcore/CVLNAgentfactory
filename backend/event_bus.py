@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from database import db
 
-VALID_TOPICS_PREFIXES = ("agent.", "factory.", "monitoring.", "memory.", "identity.")
+VALID_TOPICS_PREFIXES = ("agent.", "factory.", "monitoring.", "memory.", "identity.", "daily.", "system.")
 
 
 async def publish(topic: str, source: str, payload: dict, destination: str = "broadcast"):

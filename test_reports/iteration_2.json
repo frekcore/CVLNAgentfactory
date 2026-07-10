@@ -1,0 +1,38 @@
+{
+  "summary": "Daily Closing Service (V1.1) — full-stack testing PASSED. 27/27 new pytest cases green in /app/backend/tests/test_daily_closing.py (submissions + upsert, service-identity isolation to own agent, reader/operator blocked from submit AND close, admin closing pipeline with 6 steps + executive report + average confidence, re-close 409, submit-after-close 409, 3-tier versioned memory snapshots per agent, daily states for all 11 founders, closings list + detail, briefing before/after closure, daily.* & system.ready.next.day events, memory scope validation for session/persistent/operational/strategic + invalid=400). Non-regression backend suite (backend_test.py) also re-run: 34/34 green. Frontend UI end-to-end: login → nav 'Clôture quotidienne' → Morning Briefing rendered → report submitted for AGT-002 via UI (row + confidence appear in 'Rapports du jour') → close-day-btn → daily-report-detail with Executive Report (title, headline, Laurent target) + 4 boxes (général/production/intelligence/risques) + full pipeline steps (collect_reports, agent000_control, memory_snapshots, registry_daily_states, executive_report, system_ready_next_day) → closing history row clickable and reloads detail → after page reload, briefing shows last_closing summary + priorities (incl. 'Suite lendemain') + recommendations. Events page filtered by 'daily' shows daily.report.generated, daily.closing.started, agent.daily.completed. Non-regression nav across dashboard/agents/generator/doctrine/events/audit/monitoring/users all working.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DailyClosing (only, preview mode)", "issues": ["Preview-mode React hydration console warning: `<span> cannot be a child of <option>` — caused by the emergent visual-editor injecting a `data-ve-dynamic` `<span style={display:contents}>` inside every `<option>`. Not present in production build and does not affect functionality; flagged as noise only."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_daily_closing.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/daily_closing_results.xml",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "daily_closing_routes.submit_report — 404 check on agents collection happens AFTER service-identity mismatch check and BEFORE the closed-day check. Order is fine, but consider hoisting the closed-day guard above the DB agent lookup for a marginal DB round-trip saving on a frozen day.",
+    "daily_closing_routes.close_day — audit_logs.count for denied uses `timestamp` string comparison against ISO strings (`{$gte: since, $lte: until}`); works because ISO 8601 sorts lexicographically, but note that timestamps stored by log_authz include a `+00:00` suffix (isoformat with tz) while `since`/`until` are plain 'YYYY-MM-DDTHH:MM:SS' without offset. In practice the string comparison still succeeds because '2026-07-10T…+00:00' > '2026-07-10T00:00:00', so denied counts are correct — but it's fragile if any log ever lacks the offset. Consider normalising or using proper datetime storage.",
+    "daily_closing_routes.morning_briefing — assumes `last['risks']['security']` and `last['general_state']` keys are always present; safe now but no defensive .get(). Fine as long as the schema doesn't drift.",
+    "daily_closing_routes.close_day — memory_snapshots version counter uses count_documents+1 per tier per agent (non-atomic). Fine at V1 scale (11 agents × 3 tiers × 1 close/day) but not race-safe under concurrent closures; the day-lock (409) prevents concurrent close, so acceptable.",
+    "DailyClosing.jsx submitReport — form.confidence is a string coming from the input; converted with Number(). If user clears the field, Number('') === 0, which is a valid 0-100 value and would submit as 0. Consider defaulting to 80 (EMPTY) or validating.",
+    "DailyClosing.jsx — briefing.first_day branch reads `briefing.recommendations[0]` without guarding empty array. Backend always seeds one string in that path, but frontend should still guard.",
+    "core_routes.write_memory — scope validation is now correctly extended to operational/strategic. MemoryWrite pydantic model still declares scope as free `str`; consider a Literal type for automatic 422 rather than manual 400.",
+    "Regression: nav-dashboard link occasionally fails to intercept (5s timeout) when clicked repeatedly during test — probably harmless single flake, not seen on repeat; leaving as note."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_daily_closing.py (created — 27 pytest cases across 4 phases)"
+  ],
+  "success_rate": {"backend": "100% (27/27 new + 34/34 regression)", "frontend": "100%"},
+  "test_credentials": "Admin: laurent@cvln.fr / CVLNfactory2026! · AGT-000 svc token: svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c · reader/operator users created dynamically with TEST_ prefix per run",
+  "seed_data_creation": "During pytest run: TEST_dc_reader_{RUN}@cvln.fr and TEST_dc_op_{RUN}@cvln.fr users are created (kept for reuse). daily_agent_reports contains AGT-000 (upsert x3), AGT-001, and AGT-002 (added by UI test). daily_reports and memory_snapshots for today's date (2026-07-10) were reset between pytest run and UI run; after UI run the day is closed with one closing document. IMPORTANT: after this iteration the day IS CLOSED (2026-07-10). If main agent wants to re-close, they must first drop daily_reports/daily_agent_reports/agent_daily_states/memory_snapshots collections (or wait to next UTC date).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_daily_closing.py is the regression suite for Daily Closing Service. It MUST be run with `-n 0` (or in a single worker) — the day-closure is a one-shot mutation and parallel workers would race across Phase A/B. To re-run: 1) reset daily_* collections via a small motor script, 2) `pytest /app/backend/tests/test_daily_closing.py -n 0 -v`. backend_test.py (iteration 1) still runs safely in parallel loadscope. The visual-editor `<span>` in `<option>` hydration warning is preview-only noise.",
+  "rca of the issue": "No open issues. The initial pytest run with default `-n 2 --dist loadscope` sent Phase-C to worker gw1 while Phase-A/B was still running on gw0 — closure happened out of order relative to reads. Fixed by running with `-n 0` (serial). All 27 tests then pass consistently."
+}

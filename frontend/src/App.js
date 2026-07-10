@@ -10,6 +10,7 @@ import Agents from "./pages/Agents";
 import AgentDetail from "./pages/AgentDetail";
 import ADLEditor from "./pages/ADLEditor";
 import Generator from "./pages/Generator";
+import DailyClosing from "./pages/DailyClosing";
 import Doctrine from "./pages/Doctrine";
 import Events from "./pages/Events";
 import Audit from "./pages/Audit";
@@ -36,6 +37,7 @@ function App() {
               <Route path="/agents/:agentId" element={<AgentDetail />} />
               <Route path="/editor" element={<ADLEditor />} />
               <Route path="/generator" element={<Generator />} />
+              <Route path="/daily" element={<DailyClosing />} />
               <Route path="/doctrine" element={<Doctrine />} />
               <Route path="/events" element={<Events />} />
               <Route path="/audit" element={<Audit />} />

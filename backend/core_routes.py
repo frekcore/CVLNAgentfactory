@@ -86,8 +86,8 @@ async def write_memory(payload: MemoryWrite, actor: dict = Depends(get_current_a
     if actor["type"] == "human" and actor["role"] == "reader":
         await log_authz(actor, "memory_write", f"agent:{payload.agent_id}", False, "readers cannot write memory")
         raise HTTPException(status_code=403, detail="Readers cannot write to memory")
-    if payload.scope not in ("session", "persistent"):
-        raise HTTPException(status_code=400, detail="scope must be 'session' or 'persistent'")
+    if payload.scope not in ("session", "persistent", "operational", "strategic"):
+        raise HTTPException(status_code=400, detail="scope must be 'session', 'persistent', 'operational' or 'strategic'")
     ts = now_iso()
     await db.memory_entries.update_one(
         {"agent_id": payload.agent_id, "key": payload.key, "scope": payload.scope},

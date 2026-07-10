@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useLang } from "../lib/i18n";
 import {
   SquaresFour, Robot, Code, Factory, Scroll, Broadcast, ShieldCheck,
-  UsersThree, SignOut, Pulse,
+  UsersThree, SignOut, Pulse, CalendarCheck,
 } from "@phosphor-icons/react";
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/agents", key: "agents", icon: Robot },
   { to: "/editor", key: "adl_editor", icon: Code },
   { to: "/generator", key: "generator", icon: Factory },
+  { to: "/daily", key: "daily_closing", icon: CalendarCheck },
   { to: "/doctrine", key: "doctrine", icon: Scroll },
   { to: "/events", key: "events", icon: Broadcast },
   { to: "/audit", key: "audit", icon: ShieldCheck },

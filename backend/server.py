@@ -20,6 +20,7 @@ import identity_routes
 import core_routes
 import generator_routes
 import external_routes
+import daily_closing_routes
 from doctrine import seed_doctrine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -66,6 +67,7 @@ api_router.include_router(identity_routes.router)
 api_router.include_router(core_routes.router)
 api_router.include_router(generator_routes.router)
 api_router.include_router(external_routes.router)
+api_router.include_router(daily_closing_routes.router)
 
 app.include_router(api_router)
 
