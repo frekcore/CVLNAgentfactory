@@ -50,7 +50,7 @@ export default function DailyClosing() {
         tasks_done: toList(form.tasks_done), results: toList(form.results),
         data_produced: toList(form.data_produced), decisions: toList(form.decisions),
         difficulties: toList(form.difficulties), alerts: toList(form.alerts),
-        next_actions: toList(form.next_actions), confidence: Number(form.confidence),
+        next_actions: toList(form.next_actions), confidence: form.confidence === "" ? 80 : Number(form.confidence),
         human_intervention_needed: form.human_intervention_needed,
         human_intervention_reason: form.human_intervention_reason,
       });
@@ -102,7 +102,7 @@ export default function DailyClosing() {
           </p>
           <p className="text-sm mb-4">{briefing.message}</p>
           {briefing.first_day ? (
-            <p className="text-xs font-mono text-muted-foreground">{briefing.recommendations[0]}</p>
+            <p className="text-xs font-mono text-muted-foreground">{briefing.recommendations?.[0]}</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div><p className={label}>{t("priorities")}</p><List items={briefing.priorities} /></div>

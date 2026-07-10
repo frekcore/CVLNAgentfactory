@@ -28,6 +28,7 @@ Plateforme Palier 3 (V1 : Registry + ADL) : système d'exploitation pour agents 
 - [x] Phase 4 : Event Bus (journal complet, publish contrôlé) + Memory (espaces isolés, journal d'accès) + journaux d'audit console
 - [x] Phase 5 : Monitoring (santé 5 services, dashboard supervision, alertes)
 - [x] Agent Generator Engine : catalogue maître + pipeline auto 11 étapes (analyse → ADL → doctrine → doublon → ID auto → identité → permissions → mémoire → events → Registry → cycle de vie jusqu'à Beta / Production si admin)
+- [x] Daily Closing Service (2026-07-10) : rapports quotidiens par agent (isolation identité de service), pipeline de clôture AGT-000 (collecte → contrôle anomalies → snapshots mémoire versionnés 3 niveaux session/operational/strategic sans suppression → états quotidiens Registry → Daily Report global → CVLN Daily Executive Report pour Laurent), Morning Briefing au démarrage, événements daily.closing.started / daily.report.generated / agent.daily.completed / memory.snapshot.created / system.ready.next.day, clôture idempotente (409), page console "Clôture quotidienne" — testé iteration_2 (100%)
 - [x] Doctrine Engine : 6 sections de règles (architecture, sécurité, communication, autonomie, gouvernance, stratégie), héritage auto, /api/doctrine/check
 - [x] 8 endpoints externes réservés 501 (/api/external/*, /api/laurent-ia)
 - [x] Testing agent iteration_1 : 100% backend + frontend
@@ -39,5 +40,6 @@ Plateforme Palier 3 (V1 : Registry + ADL) : système d'exploitation pour agents 
 
 ## Next tasks
 1. Import en masse du catalogue maître (283 agents) via CSV/JSON
-2. Brute-force lockout + refresh token
-3. Contrat d'interface Laurent.ia ↔ Factory (V2)
+2. Scheduler automatique de clôture (cron 23h59 UTC) + soumission auto des rapports par les agents au Runtime (V2)
+3. Brute-force lockout + refresh token
+4. Contrat d'interface Laurent.ia ↔ Factory (V2)
