@@ -34,8 +34,12 @@ export default function CommandMobile() {
 
   const testNotif = async () => {
     try {
-      await api.post("/notifications/test", {});
-      toast.success("Notification envoyée sur ton téléphone 📲");
+      const { data } = await api.post("/notifications/test", {});
+      if (data.pushed) {
+        toast.success("Notification envoyée sur ton téléphone 📲");
+      } else {
+        toast.error(`Push Telegram indisponible — ${formatApiError(data.push_error) || "envoie /start au bot puis « Connecter Telegram »"}`);
+      }
       load();
     } catch (err) { toast.error(formatApiError(err.response?.data?.detail)); }
   };

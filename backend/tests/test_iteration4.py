@@ -63,12 +63,12 @@ class TestNotifications:
         before = requests.get(f"{API}/notifications", headers=admin_headers).json()
         r = requests.post(f"{API}/notifications/test", headers=admin_headers,
                           json={"message": f"TEST it4 notif {RUN}"})
-        # Push fails cleanly because /start not sent → backend returns 502 EXPECTED.
-        # NOTE: The Cloudflare/ingress in front of the app intercepts origin 502 responses
-        # and replaces the body with an HTML "Bad gateway" page. Body/detail therefore
-        # can NOT be relied on from the client side. We only assert the status code and
-        # verify the notification is still persisted in Mongo.
-        assert r.status_code == 502, f"expected 502 got {r.status_code} — {r.text[:200]}"
+        # New contract (PHASE 0 fix): always 200 with structured JSON {pushed, push_error}
+        # so the ingress never swallows the body.
+        assert r.status_code == 200, f"expected 200 got {r.status_code} — {r.text[:200]}"
+        body = r.json()
+        if not body["pushed"]:
+            assert body["push_error"], "push_error must explain the failure when pushed=false"
         # But notification persisted
         after = requests.get(f"{API}/notifications", headers=admin_headers).json()
         assert len(after) >= len(before) + 1

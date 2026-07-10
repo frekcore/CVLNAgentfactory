@@ -13,7 +13,10 @@ api.interceptors.request.use((config) => {
 
 export function formatApiError(detail) {
   if (detail == null) return "Une erreur est survenue.";
-  if (typeof detail === "string") return detail;
+  if (typeof detail === "string") {
+    if (detail.trimStart().startsWith("<")) return "Le serveur a renvoyé une réponse invalide — réessayez dans un instant.";
+    return detail.length > 240 ? `${detail.slice(0, 240)}…` : detail;
+  }
   if (Array.isArray(detail)) return detail.map((e) => (e && typeof e.msg === "string" ? e.msg : JSON.stringify(e))).join(" ");
   if (typeof detail === "object") return detail.message || JSON.stringify(detail);
   return String(detail);

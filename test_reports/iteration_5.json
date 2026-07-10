@@ -1,0 +1,30 @@
+{
+  "summary": "PHASE 0 (CVLN-GOV-AUDIT-001) — Targeted retest of the Telegram push failure bug identified in iteration_4. Backend fix (POST /api/notifications/test now returns HTTP 200 with {result, pushed, push_error}) verified end-to-end through the Cloudflare ingress: pytest TestNotifications 4/4 GREEN, curl through the public URL returns HTTP 200 application/json with the expected structured body, and the notification is persisted in db.notifications. Frontend Playwright on mobile viewport 390x844: login OK, /command loads, [data-testid='test-notification-btn'] click produces a clean sonner toast ‘Push Telegram indisponible — founder chat_id not discovered yet (send /start to the bot)’ — NO HTML leak, NO Cloudflare wall-of-text, page does not crash. Non-regression: [data-testid='connect-telegram-btn'] returns a clean 404 toast (‘Aucun message reçu — envoie /start au bot @cvln puis réessaie.’), and Dashboard + Agents navigation still work after these actions.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/iteration5_notifications.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "notification_routes.send_test — clean fix: contract is now (200, {result, pushed, push_error}), which cannot be swallowed by any ingress. Good defensive design.",
+    "api.js formatApiError — HTML guard (`detail.trimStart().startsWith('<')`) + 240-char truncation is sensible; would also apply to Array joined strings if any element happens to start with '<' (edge case, not blocking).",
+    "CommandMobile.testNotif — reads data.pushed correctly and passes data.push_error through formatApiError, which handles the (unlikely here) HTML edge case. UX is now correct."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4 TestNotifications)", "frontend": "100% (test-notif toast clean, connect-telegram toast clean, nav Dashboard+Agents OK)"},
+  "test_credentials": "Admin: laurent@cvln.fr / CVLNfactory2026! (used from /app/memory/test_credentials.md)",
+  "seed_data_creation": "1 additional 'Test CVLN Command' notification (level 3, source=founder-console) added by the pytest + 1 by the frontend click. Safe, purely additive, matches iteration_4 conventions.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "PHASE 0 bug is fully closed. Backend contract for POST /api/notifications/test is now HTTP 200 with body {result: 'sent'|'persisted_only', pushed: bool, push_error: str|null}. Do NOT assert 502 anymore. test_iteration4.py::TestNotifications::test_send_test_returns_502_but_persists_notification is misnamed (still says 502) but its body correctly asserts 200 + structured JSON — safe to leave, or rename to test_send_test_returns_200_with_push_error for clarity.",
+  "rca of the issue": "Fix verified. Root cause was: (1) backend raised HTTPException(502) on push failure, (2) Cloudflare replaced the origin 502 body with a static HTML 'Bad gateway' page, (3) frontend rendered that HTML in a sonner toast. Fix applied — backend now returns HTTP 200 with {pushed:false, push_error:'…'} (option (a) from iteration_4 rca), frontend reads data.pushed and calls formatApiError on push_error which also has a defensive HTML guard + 240-char truncation. End-to-end verification: curl through public URL returns HTTP 200 application/json with clean body; Playwright toast reads 'Push Telegram indisponible — founder chat_id not discovered yet (send /start to the bot)'; notification persisted in db.notifications (visible in GET /api/notifications and in the mobile UI list)."
+}

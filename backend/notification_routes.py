@@ -39,9 +39,9 @@ async def discover(actor: dict = Depends(require_admin)):
 @router.post("/test")
 async def send_test(payload: TestPayload, actor: dict = Depends(require_admin)):
     record = await notify(3, "Test CVLN Command", payload.message, source="founder-console")
-    if not record["pushed"]:
-        raise HTTPException(status_code=502, detail=record["push_error"] or "push failed")
-    return {"result": "sent", "pushed": True}
+    return {"result": "sent" if record["pushed"] else "persisted_only",
+            "pushed": record["pushed"],
+            "push_error": record["push_error"]}
 
 
 @router.post("/{notification_id}/read")
