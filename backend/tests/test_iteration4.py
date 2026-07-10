@@ -59,7 +59,7 @@ class TestNotifications:
         # 4 levels
         assert set(map(int, d["levels"].keys())) == {1, 2, 3, 4}
 
-    def test_send_test_returns_502_but_persists_notification(self, admin_headers):
+    def test_send_test_returns_200_with_push_error(self, admin_headers):
         before = requests.get(f"{API}/notifications", headers=admin_headers).json()
         r = requests.post(f"{API}/notifications/test", headers=admin_headers,
                           json={"message": f"TEST it4 notif {RUN}"})

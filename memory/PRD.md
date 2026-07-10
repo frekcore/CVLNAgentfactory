@@ -43,6 +43,20 @@ Plateforme Palier 3 (V1 : Registry + ADL) : système d'exploitation pour agents 
 - [x] 8 endpoints externes réservés 501 (/api/external/*, /api/laurent-ia)
 - [x] Testing agent iteration_1 : 100% backend + frontend
 
+- [x] PHASE 0 CVLN-GOV-AUDIT-001 (2026-07-10, testé iteration_5 100%) : fix bug Telegram (POST /api/notifications/test → toujours 200 {pushed, push_error}, plus de 502 avalé par l'ingress ; toast sonner propre côté CommandMobile ; garde HTML + troncature 240c dans formatApiError) + snapshot pré-évolution cvln_backup_20260710_153622.json.gz (173 docs, 19 collections)
+
+## Mission en cours : CVLN-ARCH-CONTINUITY-001 (protocole CVLN-GOV-AUDIT-001)
+Transformer CVLN en infrastructure cognitive persistante, traçable, gouvernée. Phases validées par Laurent :
+- [x] PHASE 0 — Sécurisation (fix Telegram + snapshot)
+- [ ] PHASE 1 — Permission Gate v2 (6 niveaux, règles par agent/mission/type d'action, journal des refus) + Activity Journal v2 (fusion events/audit, 8 types, confiance+preuve)
+- [ ] PHASE 2 — Doctrine Registry v2 (statuts proposition/validée/active/archivée, versions, validateur, historique) + Memory Layer 4 types (doctrinale/stratégique/opérationnelle/apprentissage) + Objective Registry (nouveau)
+- [ ] PHASE 3 — Agent Runtime states (actif/sommeil/erreur/attente validation/terminé/suspendu) + réveil avec restauration contexte complet
+- [ ] PHASE 4 — Autonomous Runtime Layer (cycle 9 étapes, DRY RUN obligatoire au départ)
+- [ ] PHASE 5 — Recovery & Continuity (checkpoints agent/mission, reprise, contrôle cohérence)
+- [ ] PHASE 6 — Morning Briefing étendu + Runtime Dashboard
+- [ ] PHASE 7 — Tests obligatoires (8 scénarios) avant activation production
+Règles : réutiliser l'existant, zéro doublon, rapport d'impact avant modif, compat données existantes, versionner, journaliser, jamais d'autonomie critique sans Permission Gate, validation humaine Laurent pour stratégie/finance/gouvernance/publication/suppression.
+
 ## Backlog priorisé
 - P0 : rien de bloquant
 - P1 : lockout brute-force (5 tentatives / 15 min) sur le login ; CORS origins explicites (actuellement * — cookies inutilisés côté cross-origin, Bearer utilisé) ; validation enum autonomy_level au niveau du schéma ADL (actuellement contrôlé par doctrine seulement)
