@@ -40,6 +40,7 @@ import adl_v2_routes
 import knowledge_sources_routes
 import provider_layer
 import founder_council
+import constitution_routes
 from seed_workforce import seed_workforce
 from doctrine import seed_doctrine
 
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
     await seed_doctrine()
     await seed_workforce()
     await doctrine_registry_routes.seed_doctrine_registry()
+    await constitution_routes.seed_constitution()
     await runtime_routes.runtime_recovery()
     await autonomous_routes.reconcile_interrupted_cycles()
     logger.info("CVLN Agent Factory — Core Services started")
@@ -112,6 +114,7 @@ api_router.include_router(adl_v2_routes.router)
 api_router.include_router(knowledge_sources_routes.router)
 api_router.include_router(provider_layer.router)
 api_router.include_router(founder_council.router)
+api_router.include_router(constitution_routes.router)
 
 app.include_router(api_router)
 
