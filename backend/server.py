@@ -41,6 +41,7 @@ import knowledge_sources_routes
 import provider_layer
 import founder_council
 import constitution_routes
+import mission_os_routes
 from seed_workforce import seed_workforce
 from doctrine import seed_doctrine
 
@@ -115,6 +116,7 @@ api_router.include_router(knowledge_sources_routes.router)
 api_router.include_router(provider_layer.router)
 api_router.include_router(founder_council.router)
 api_router.include_router(constitution_routes.router)
+api_router.include_router(mission_os_routes.router)
 
 app.include_router(api_router)
 
