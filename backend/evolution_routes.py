@@ -38,6 +38,16 @@ async def list_proposals(status: Optional[str] = None, actor: dict = Depends(get
 
 @router.post("/proposals")
 async def create_proposal(payload: ProposalPayload, actor: dict = Depends(require_registry_writer)):
+    """LIAISON 3 (Vague 1) : système unifié — les propositions d'évolution passent par le Doctrine Registry v2.
+    Historique evolution_proposals conservé en lecture (aucune perte)."""
+    raise HTTPException(status_code=410, detail={
+        "message": "Circuit unifié : proposez via POST /api/doctrine/registry (statuts proposition→validée→active, "
+                   "quorum et validation humaine). L'historique evolution_proposals reste consultable en lecture.",
+        "redirect": "/api/doctrine/registry"})
+
+
+@router.post("/proposals-legacy-disabled")
+async def create_proposal_legacy(payload: ProposalPayload, actor: dict = Depends(require_registry_writer)):
     if payload.type not in PROPOSAL_TYPES:
         raise HTTPException(status_code=400, detail=f"type must be one of {PROPOSAL_TYPES}")
     proposal = {"id": str(uuid.uuid4()), **payload.model_dump(), "status": "proposed",

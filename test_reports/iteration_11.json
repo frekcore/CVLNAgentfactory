@@ -1,0 +1,36 @@
+{
+  "summary": "VAGUE 1 (P0) — audit connectivité + Mission OS PHASE B. Créé /app/backend/tests/test_vague1_connectivity.py (14 tests : 1 L1, 3 L2, 2 L3, 7 Mission OS, 1 Constitution) → 14/14 PASS. Non-régression complète (test_gate_journal, test_constitution, test_phase2_registries, test_phase3_runtime, test_phase4_sovereign, test_vague1_connectivity) → 145 passed, 2 skipped, 1 failed (test_phase4_sovereign::TestAutonomousLive::test_live_cycle_creates_tasks_and_escalates — voir action_items). Smoke frontend admin login OK ; /runtime, /governance, /objectives chargent sans erreur console. Mode runtime = dry_run confirmé. 135 Draft intacts (non touchés). Aucun agent créé, aucune dépense approuvée >100k€.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/gate/validation-requests", "issue": "Le paramètre ?limit=N est IGNORÉ (hardcoded to_list(200) dans gate_routes.py:230). Cohérence API à corriger."},
+      {"endpoint": "POST /api/gate/check (action_type=expense)", "issue": "Réponse renvoie 'validation_request_id' dont la valeur est en réalité un expense_request_id (queue Gatekeeper). Nom de champ trompeur pour les clients. Envisager renommer en 'request_id' ou ajouter 'queue' déjà présent en clé discriminante."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_vague1_connectivity.py",
+    "/app/test_reports/pytest/vague1_results.xml",
+    "/app/test_reports/pytest/nonregression_vague1.xml"
+  ],
+  "action_items": [
+    "test_phase4_sovereign.py::test_live_cycle_creates_tasks_and_escalates échoue (pré-existant, révélé par L2) : le test crée un objectif avec next_action 'acheter une licence à 500€' → detect_critical_intent='expense' → gate_check pour expense route désormais vers la file Financial Gatekeeper (expense_requests) et non plus validation_requests. Le vr_id retourné (via decision['validation_request_id']) est en fait un expense_request_id, absent de GET /api/gate/validation-requests. Fix suggéré : (a) remplacer next_action par un keyword non-expense (ex: 'publier un communiqué externe') ET s'assurer que l'objectif TEST soit dans le top 5 (les top 5 P0 actuels sont saturés d'anciens objectifs expense) — ex. utiliser un priority spécifique ou nettoyer les anciens objectifs de test, OU (b) faire assertion sur les DEUX queues (validation_requests OU expense_requests). J'ai testé (a) partiellement — remplacer next_action ne suffit pas car TEST-OBJ n'apparaît pas dans le top 5 (last_activity plus récent que les OBJ existants). Recommandation : mettre à jour le test pour accepter les IDs des deux files.",
+    "Renommer/documenter la clé 'validation_request_id' dans la réponse gate_check quand action_type=expense (c'est un expense_request_id — utiliser 'queue' pour dispatcher côté client, déjà présent)."
+  ],
+  "critical_code_review_comments": [
+    "gate_routes.py:227-230 — GET /validation-requests ignore le param limit (hardcoded to_list(200)). Bug d'ergonomie API.",
+    "gate_routes.py:149-152 — le champ 'validation_request_id' retourné pour expense contient en réalité un expense_request_id. Confusion sémantique — préférer 'request_id' + 'queue' distinctif.",
+    "mission_os_routes.py:135 — le facteur d'échelle '× 3.0' est calibré empiriquement sur jeu fictif (bien commenté). À revalider quand de vrais objectifs stratégiques SO-NNN remplacent les placeholders.",
+    "autonomous_routes.py:151-158 — try/except Exception silencieux autour de compute_alignment : masque toute erreur. OK pour dégrader gracieusement mais logguer l'erreur (au moins print) faciliterait le debug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_vague1_connectivity.py (créé, 14 tests)"
+  ],
+  "success_rate": {"backend": "99.3% (145/146, hors skipped) — 14/14 sur suite VAGUE 1", "frontend": "100% smoke (3/3 pages)"},
+  "test_credentials": "Admin laurent@cvln.fr / CVLNfactory2026! ; Service AGT-000 Bearer svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c",
+  "seed_data_creation": "Créé quelques expense_requests avec préfixe 'TEST_VAGUE1' via POST /api/gate/check (montants 75€ ×2 + 150000€ ×1). Une seule 'approuvée' via /api/finance/expense-requests/{id}/approve (montant 75€, required_approvals=1). Les autres restent pending. Aucun objectif Mission OS créé (tests attendent 404/403). Aucun agent Draft touché.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "VAGUE 1 (L1/L2/L3) fonctionne côté API. Test_vague1_connectivity.py couvre les 3 liaisons + 7 endpoints Mission OS + 1 vérification constitution (ART-006 et ART-017 PASS, fail=0). Le seul échec non-régression est TestAutonomousLive::test_live_cycle_creates_tasks_and_escalates, qui doit être adapté aux nouvelles routes L2 (expense → expense_requests). Bases de données : ~41 validation_requests + expense_requests accumulés (nettoyage TEST_VAGUE1 possible via db.expense_requests.delete_many({'description': {'$regex': '^TEST_VAGUE1'}})). Mode runtime = dry_run, hash constitution sha256:95351f77… inchangé. summary constitution : 17 pass / 0 fail / 2 pending_layer / 2 partial_manual.",
+  "rca of the issue": "test_phase4_sovereign::test_live_cycle_creates_tasks_and_escalates : cause = LIAISON 2 (VAGUE 1) redirige action_type=expense vers la file Financial Gatekeeper. Le cycle live détecte 'acheter' dans le next_action et appelle gate_check(action_type='expense'). gate_routes.py:149-152 crée un expense_request au lieu d'un validation_request MAIS renvoie {'validation_request_id': <expense_request_id>}. Le test assert vr_id in ids où ids provient de GET /api/gate/validation-requests → miss. Reproduction : POST /api/autonomous/cycle en mode live avec un objectif P0 récent contenant 'acheter' dans next_action. Mitigation : (1) adapter le test pour rechercher l'ID dans les deux queues, ou (2) utiliser un keyword non-expense (publier/supprimer/gouvernance) qui reste dans validation_requests. Correction impérative côté test (business inchangé)."
+}

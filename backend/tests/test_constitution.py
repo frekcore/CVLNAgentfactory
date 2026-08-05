@@ -106,7 +106,7 @@ EXPECTED_STATUS = {
     "ART-003": {"pass"},
     "ART-004": {"pass"},
     "ART-005": {"pass"},
-    "ART-006": {"pending_layer"},
+    "ART-006": {"pass"},  # Mission OS actif (PHASE B)
     "ART-007": {"pending_layer"},
     "ART-008": {"pass"},
     "ART-009": {"pass"},
@@ -117,7 +117,7 @@ EXPECTED_STATUS = {
     "ART-014": {"manual"},
     "ART-015": {"pass"},
     "ART-016": {"pass", "partial"},
-    "ART-017": {"fail"},  # violation attendue AGT-100
+    "ART-017": {"pass"},  # corrigé par Laurent (AGT-100 → sommeil)
     "ART-018": {"pass"},
     "ART-019": {"pass"},
     "ART-020": {"pending_layer"},

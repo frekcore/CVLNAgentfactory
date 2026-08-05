@@ -61,6 +61,12 @@ ARTICLES = [
 
 CRITICAL_GATE_ACTIONS = ["expense", "external_publication", "governance_change",
                          "data_deletion", "permission_change", "critical_production_activation"]
+FOUNDERS = [f"AGT-{i:03d}" for i in range(1, 11)]
+QUORUM = 3
+try:
+    from founder_council import FOUNDERS, QUORUM  # LIAISON 3 : mécanique de quorum unifiée
+except ImportError:
+    pass
 
 
 def compute_hash(articles: list) -> str:
@@ -238,7 +244,7 @@ async def propose_amendment(payload: AmendmentPayload, actor: dict = Depends(get
         raise HTTPException(status_code=403, detail="Readers cannot propose amendments")
     if payload.article_id not in [a["id"] for a in ARTICLES]:
         raise HTTPException(status_code=404, detail="Article inconnu")
-    am = {"id": str(uuid.uuid4()), **payload.model_dump(), "signatures": [], "quorum": 3,
+    am = {"id": str(uuid.uuid4()), **payload.model_dump(), "signatures": [], "quorum": QUORUM,
           "wudy_validated": False, "status": "proposed", "applied_at": None,
           "created_by": f'{actor["type"]}:{actor["id"]}', "created_at": now_iso()}
     await db.constitution_amendments.insert_one({**am})
@@ -250,7 +256,7 @@ async def propose_amendment(payload: AmendmentPayload, actor: dict = Depends(get
 
 @router.post("/amendments/{amendment_id}/sign")
 async def sign_amendment(amendment_id: str, actor: dict = Depends(get_current_actor)):
-    founders = [f"AGT-{i:03d}" for i in range(1, 11)]
+    founders = FOUNDERS
     if not (actor["type"] == "service" and actor["id"] in founders):
         raise HTTPException(status_code=403, detail="Seuls les fondateurs AGT-001→010 votent (Art. 21)")
     am = await db.constitution_amendments.find_one({"id": amendment_id}, {"_id": 0})

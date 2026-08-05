@@ -121,8 +121,35 @@ async def gate_check(actor: dict, action_type: str, summary: str,
             return {"allowed": True, "level": 5, "decision": "execute_after_validation",
                     "rule_source": rule_source, "validation_id": validation_id,
                     "reason": "Exécution autorisée — validation humaine approuvée."}
+        # LIAISON 2 : une dépense approuvée dans la file Gatekeeper vaut validation
+        er = await db.expense_requests.find_one({"id": validation_id}, {"_id": 0})
+        if er and er["status"] in ("approved", "auto_approved") and action_type == "expense":
+            await journal("action_executee", actor, summary, source=source,
+                          mission_id=mission_id, agent_id=agent_id, confidence=confidence,
+                          evidence={**(evidence or {}), **ctx, "expense_request_id": validation_id}, result="executed")
+            return {"allowed": True, "level": 5, "decision": "execute_after_validation",
+                    "rule_source": rule_source, "validation_id": validation_id,
+                    "reason": "Exécution autorisée — dépense validée par le Financial Gatekeeper."}
 
     # Automatic escalation to human validation
+    # LIAISON 2 (Vague 1) : les dépenses passent par la file UNIQUE du Financial Gatekeeper
+    if action_type == "expense":
+        amount = float((evidence or {}).get("amount") or 0)
+        req = {"id": str(uuid.uuid4()), "amount": amount or 0.01, "description": summary[:300],
+               "entity": (evidence or {}).get("entity", ""), "agent_id": agent_id, "category": "gate",
+               "required_approvals": 1 if amount <= 100000 else 2, "approvals": [],
+               "status": "pending", "requested_by": f'{actor.get("type","?")}:{actor.get("id","?")}',
+               "created_at": now_iso(), "updated_at": now_iso()}
+        await db.expense_requests.insert_one({**req})
+        await journal("action_bloquee", actor, f"[GATEKEEPER] Dépense escaladée (file unique) : {summary}",
+                      source="financial-gatekeeper", mission_id=mission_id, agent_id=agent_id,
+                      evidence={**(evidence or {}), **ctx, "expense_request_id": req["id"]}, result="escalated")
+        await notify(2, "Dépense — validation requise",
+                     f"{summary[:150]} — validation via Financial Gatekeeper.", source="financial-gatekeeper")
+        return {"allowed": False, "level": 5, "decision": "pending_human_validation",
+                "rule_source": rule_source, "queue": "financial-gatekeeper",
+                "validation_request_id": req["id"],
+                "reason": "Dépense bloquée — validation via la file unique du Financial Gatekeeper (plafonds Art. 13)."}
     vr = {"id": str(uuid.uuid4()), "action_type": action_type, "summary": summary,
           "agent_id": agent_id, "mission_id": mission_id, "critical": is_critical,
           "requested_by": f'{actor.get("type","?")}:{actor.get("id","?")}',

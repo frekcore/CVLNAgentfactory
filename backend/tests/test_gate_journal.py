@@ -98,7 +98,7 @@ class TestCriticalEscalation:
     def escalated(self, service_client):
         summary = f"TEST_expense_escalation_{int(time.time() * 1000)}"
         r = service_client.post(f"{API}/gate/check",
-                                json={"action_type": "expense", "summary": summary,
+                                json={"action_type": "external_publication", "summary": summary,
                                       "evidence": {"amount": 42}}, timeout=30)
         assert r.status_code == 200, r.text
         d = r.json()
@@ -142,7 +142,7 @@ class TestCriticalEscalation:
         # Re-check with validation_id → allowed
         summary2 = f"TEST_expense_executed_{int(time.time() * 1000)}"
         r2 = service_client.post(f"{API}/gate/check",
-                                 json={"action_type": "expense", "summary": summary2,
+                                 json={"action_type": "external_publication", "summary": summary2,
                                        "validation_id": vid}, timeout=30)
         assert r2.status_code == 200
         d2 = r2.json()
@@ -159,7 +159,7 @@ class TestRejectedEscalation:
         # Create a fresh escalation
         summary = f"TEST_expense_reject_{int(time.time() * 1000)}"
         r = service_client.post(f"{API}/gate/check",
-                                json={"action_type": "expense", "summary": summary}, timeout=30)
+                                json={"action_type": "external_publication", "summary": summary}, timeout=30)
         assert r.status_code == 200
         vid = r.json()["validation_request_id"]
         # Reject
@@ -168,7 +168,7 @@ class TestRejectedEscalation:
         assert rj.json()["result"] == "rejected"
         # Re-check with same validation_id → must remain blocked (new escalation)
         r2 = service_client.post(f"{API}/gate/check",
-                                 json={"action_type": "expense", "summary": summary + "_retry",
+                                 json={"action_type": "external_publication", "summary": summary + "_retry",
                                        "validation_id": vid}, timeout=30)
         assert r2.status_code == 200
         d2 = r2.json()
@@ -181,7 +181,7 @@ class TestAdminDirectCritical:
     def test_admin_critical_allowed_with_journal(self, admin_client):
         summary = f"TEST_admin_expense_direct_{int(time.time() * 1000)}"
         r = admin_client.post(f"{API}/gate/check",
-                              json={"action_type": "expense", "summary": summary}, timeout=30)
+                              json={"action_type": "external_publication", "summary": summary}, timeout=30)
         assert r.status_code == 200
         d = r.json()
         assert d["allowed"] is True

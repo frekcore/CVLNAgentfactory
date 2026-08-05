@@ -139,7 +139,7 @@ async def run_cycle(actor: dict = Depends(get_current_actor)):
         top = pursuable[:5]
         step(3, "prioriser", f"Top {len(top)} : {', '.join(o['code'] for o in top)}" if top else "Aucun objectif à prioriser")
 
-        # 4. Analyser chaque objectif prioritaire
+        # 4. Analyser chaque objectif prioritaire (+ LIAISON 1 : score d'alignment Mission OS — évaluation seule)
         analyses = []
         for o in top:
             owner_agent = await db.agents.find_one({"id": o["owner"]}, {"_id": 0, "id": 1, "runtime.state": 1}) \
@@ -149,12 +149,21 @@ async def run_cycle(actor: dict = Depends(get_current_actor)):
                 {"agent_id": o["owner"], "title": {"$regex": f"^\\[OBJ\\] {o['code']}"},
                  "status": {"$in": ["open", "in_progress"]}}, {"_id": 0, "id": 1})
             critical = detect_critical_intent(o.get("next_action", ""))
+            alignment = None
+            try:
+                from mission_os_routes import compute_alignment
+                al = await compute_alignment(o["owner"], f"{o['title']}. {o.get('next_action', '')}", None)
+                alignment = {"score": al["score"], "decision": al["decision"]}
+            except Exception:
+                pass
             analyses.append({"objective": o["code"], "owner": o["owner"], "owner_state": owner_state,
                              "next_action": o.get("next_action", ""), "has_open_task": bool(existing_task),
-                             "critical_intent": critical})
+                             "critical_intent": critical, "alignment": alignment})
         cycle["analyses"] = analyses
+        low_alignment = sum(1 for a in analyses if a.get("alignment") and a["alignment"]["score"] < 0.3)
         step(4, "analyser", f"{len(analyses)} objectif(s) analysé(s), "
-                            f"{sum(1 for a in analyses if a['critical_intent'])} intention(s) critique(s) détectée(s)")
+                            f"{sum(1 for a in analyses if a['critical_intent'])} intention(s) critique(s), "
+                            f"{low_alignment} alignment(s) faible(s) <0.3 (évaluation seule — apply=false)")
         if analyses:
             await journal("analyse", RUNTIME_ACTOR,
                           f"Cycle #{number} — analyse de {len(analyses)} objectif(s) prioritaire(s)",
