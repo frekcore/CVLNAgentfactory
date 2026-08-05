@@ -60,6 +60,9 @@ async def get_current_actor(request: Request) -> dict:
         identity = await db.identities.find_one({"token_hash": hash_service_token(token), "active": True}, {"_id": 0})
         if not identity:
             raise HTTPException(status_code=401, detail="Invalid service token")
+        expires = identity.get("expires_at")
+        if expires and expires < datetime.now(timezone.utc).isoformat():
+            raise HTTPException(status_code=401, detail="Service token expired (TTL) — rotate it")
         return {"type": "service", "id": identity["agent_id"], "name": identity["name"],
                 "role": "service", "scopes": identity.get("scopes", [])}
 
@@ -85,12 +88,20 @@ async def require_admin(actor: dict = Depends(get_current_actor)) -> dict:
     return actor
 
 
-async def require_registry_writer(actor: dict = Depends(get_current_actor)) -> dict:
-    """Rule: only Agent 000 (service identity) or an admin acting on its behalf writes to the Registry."""
+async def require_registry_writer(request: Request, actor: dict = Depends(get_current_actor)) -> dict:
+    """Rule: only Agent 000 (service identity) or an admin writes to the Registry.
+    FALLBACK (ADR-001): a used-once Founder Council quorum approval (header X-Council-Approval)."""
     is_agent000 = actor["type"] == "service" and actor["id"] == "AGT-000"
     is_admin = actor["type"] == "human" and actor["role"] == "admin"
-    if not (is_agent000 or is_admin):
-        await log_authz(actor, "registry_write", "registry", False,
-                        "only AGT-000 service identity or admin may write to the Registry")
-        raise HTTPException(status_code=403, detail="Registry write restricted to Agent 000 or admin")
-    return actor
+    if is_agent000 or is_admin:
+        return actor
+    council_id = request.headers.get("X-Council-Approval")
+    if council_id:
+        from founder_council import check_council_approval
+        if await check_council_approval(council_id):
+            await log_authz(actor, "registry_write", "registry", True,
+                            f"Founder Council fallback (quorum) — approval {council_id}")
+            return actor
+    await log_authz(actor, "registry_write", "registry", False,
+                    "only AGT-000 service identity, admin, or Founder Council quorum may write to the Registry")
+    raise HTTPException(status_code=403, detail="Registry write restricted to Agent 000, admin, or Founder Council quorum")

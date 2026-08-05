@@ -187,10 +187,62 @@ async def health(actor: dict = Depends(get_current_actor)):
     services.append({"name": "Memory", "status": "healthy" if db_ok else "down",
                      "detail": f"{await db.memory_entries.count_documents({})} entries"})
     services.append({"name": "Monitoring", "status": "healthy", "detail": f"uptime {int(time.time() - START_TIME)}s"})
+    # F-008 : le Monitoring PUBLIE des événements d'action (il n'exécute pas — séparation stricte)
+    agents_in_error = [a["id"] async for a in db.agents.find({"runtime.state": "erreur"}, {"_id": 0, "id": 1})]
+    for aid in agents_in_error:
+        await publish("monitoring.action", "monitoring",
+                      {"action": "AGENT_RESTART", "agent_id": aid,
+                       "reason": "agent en état erreur détecté — réparation via POST /monitoring/heal"})
     if not db_ok:
         await publish("monitoring.alert", "monitoring", {"severity": "critical", "message": "MongoDB unreachable"})
         await notify(1, "Service critique en panne", "MongoDB injoignable — Registry, Memory et Event Bus impactés.", source="monitoring")
-    return {"services": services, "database": "up" if db_ok else "down", "uptime_seconds": int(time.time() - START_TIME)}
+    return {"services": services, "database": "up" if db_ok else "down",
+            "agents_in_error": agents_in_error, "uptime_seconds": int(time.time() - START_TIME)}
+
+
+@router.post("/monitoring/heal")
+async def auto_heal(actor: dict = Depends(get_current_actor)):
+    """F-008 Auto-healing : répare les agents en erreur (erreur → actif) depuis leur dernier checkpoint."""
+    from activity_journal import journal
+    if actor["type"] == "human" and actor["role"] == "reader":
+        raise HTTPException(status_code=403, detail="Readers cannot heal")
+    if actor["type"] == "service" and actor["id"] != "AGT-000":
+        raise HTTPException(status_code=403, detail="Only AGT-000 or humans heal agents")
+    healed = []
+    ts = now_iso()
+    async for a in db.agents.find({"runtime.state": "erreur"}, {"_id": 0, "id": 1, "runtime": 1}):
+        cp = await db.agent_checkpoints.find_one({"agent_id": a["id"]}, {"_id": 0, "id": 1}, sort=[("timestamp", -1)])
+        await db.agents.update_one({"id": a["id"]},
+                                   {"$set": {"runtime": {"state": "actif", "since": ts, "initialized": True,
+                                                         "previous_state": "erreur",
+                                                         "note": "auto-healing (F-008) — restauration depuis checkpoint",
+                                                         "last_transition_by": f'{actor["type"]}:{actor["id"]}',
+                                                         "last_checkpoint_id": cp["id"] if cp else None},
+                                             "updated_at": ts}})
+        healed.append(a["id"])
+        await publish("monitoring.action", actor["id"], {"action": "AGENT_RESTARTED", "agent_id": a["id"]})
+    if healed:
+        await journal("action_executee", actor,
+                      f"Auto-healing : {len(healed)} agent(s) réparé(s) ({', '.join(healed)}) — erreur → actif",
+                      source="monitoring", evidence={"healed": healed}, result="healed")
+    return {"healed": healed, "count": len(healed)}
+
+
+@router.get("/events/dlq")
+async def list_dlq(limit: int = 50, actor: dict = Depends(get_current_actor)):
+    return await db.events_dlq.find({}, {"_id": 0}).sort("dlq_at", -1).to_list(min(limit, 200))
+
+
+@router.post("/events/replay-spool")
+async def replay_event_spool(actor: dict = Depends(require_admin)):
+    """ADR-006 : rejoue la file locale de secours vers l'Event Bus après rétablissement."""
+    from event_bus import replay_spool
+    result = await replay_spool()
+    from activity_journal import journal
+    await journal("action_executee", actor,
+                  f"Replay du spool Event Bus : {result['replayed']} rejoué(s), {result['dlq']} en DLQ",
+                  source="event-bus", evidence=result, result="replayed")
+    return result
 
 
 @router.get("/monitoring/dashboard")

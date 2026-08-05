@@ -1,0 +1,253 @@
+# EXEMPLE DE MIGRATION — ADL v1.0 vers v2.0
+# Agent : AGT-060 — Data Science Analyst (KORA)
+
+# =============================================================================
+# AVANT — ADL v1.0 (structure actuelle, problématique)
+# =============================================================================
+
+adl_version: '1.0'
+agent:
+  id: 'AGT-060'
+  name: 'Data Science Analyst KORA'
+  pole: 3
+  entity: 'KORA'
+  version: '1.0.0'
+  mission: 'Analyser les données utilisateurs de KORA pour extraire des insights produit et prédire le churn.'
+  vision: 'Devenir la référence data-driven de KORA.'
+  objectives:
+    - 'Réduire le churn de 15% d'ici Q4 2026'
+    - 'Automatiser les rapports hebdomadaires'
+  kpis:
+    - 'Précision des prédictions > 85%'
+    - 'Temps de génération de rapport < 5min'
+
+brain:
+  registry: 'AGT-000'
+  memory:
+    scope: 'persistent'
+    owner: 'KORA'
+  identity:
+    auth_method: 'api_key'
+  events:
+    subscribe: ['kora.data.ingested', 'kora.user.churn_alert']
+    publish: ['kora.insights.generated', 'kora.report.ready']
+  monitoring:
+    health_check: true
+
+# PROBLÈMES :
+# 1. tools, knowledge, permissions, tests sont au niveau racine (ambigüe)
+# 2. knowledge est une liste de chaînes de texte (non structuré)
+# 3. Pas de vector_store_id, pas de consolidation_policy
+# 4. Pas de schéma de validation strict
+# 5. Pas de secrets_scope pour la gestion des credentials
+# 6. Pas de alert_thresholds précis
+
+tools:
+  - 'python_pandas'
+  - 'sql_query'
+  - 'kora_api'
+
+knowledge:
+  - 'Documentation KORA v2.3'
+  - 'Schéma base de données utilisateurs'
+  - 'Méthodologie churn prediction'
+
+permissions:
+  read: ['kora_db', 'analytics_warehouse']
+  write: ['kora_reports']
+  entities: ['KORA']
+
+tests:
+  - 'test_churn_model_accuracy'
+  - 'test_report_generation_speed'
+
+# =============================================================================
+# APRÈS — ADL v2.0 (normalisé, structuré, validable)
+# =============================================================================
+
+adl_version: '2.0'
+schema_uri: 'https://cvln.group/schemas/adl/2.0'
+
+agent:
+  id: 'AGT-060'
+  name: 'Data Science Analyst KORA'
+  pole: 3
+  entity: 'KORA'
+  version: '1.1.0'                    # INCrémenté pour la migration
+  status: 'PRODUCTION'                 # NOUVEAU — Statut explicite
+  mission: 'Analyser les données utilisateurs de KORA pour extraire des insights produit et prédire le churn.'
+  vision: 'Devenir la référence data-driven de KORA.'
+  objectives:
+    - id: 'OBJ-001'
+      description: 'Réduire le churn de 15% d'ici Q4 2026'
+      kpi: 'churn_rate_reduction_percent'
+      target: 15.0
+      deadline: '2026-12-31T23:59:59Z'
+    - id: 'OBJ-002'
+      description: 'Automatiser les rapports hebdomadaires'
+      kpi: 'report_automation_rate'
+      target: 100.0
+      deadline: '2026-09-30T23:59:59Z'
+  kpis:
+    - metric: 'prediction_accuracy'
+      target: 0.85
+      frequency: 'daily'
+    - metric: 'report_generation_time_seconds'
+      target: 300
+      frequency: 'weekly'
+
+brain:
+  registry:
+    registered_at: '2026-01-15T10:00:00Z'
+    last_updated: '2026-08-05T09:00:00Z'
+    registered_by: 'AGT-000'
+
+  memory:
+    scope: 'persistent'
+    owner: 'KORA'
+    vector_store_id: 'vs-kora-data-science-060'    # NOUVEAU — Référence Qdrant
+    consolidation_policy:
+      enabled: true
+      interval: '24h'
+      summary_model: 'kimi-moonshot-v1-32k'
+
+  identity:
+    auth_method: 'api_key'
+    permissions:
+      read: ['kora_db:analytics', 'analytics_warehouse:read']
+      write: ['kora_reports:write', 'kora_insights:publish']
+      entities: ['KORA']
+    secrets_scope: 'cvln/agents/AGT-060'            # NOUVEAU — Référence Vault
+
+  events:
+    subscribe:
+      - 'kora.data.ingested'
+      - 'kora.user.churn_alert'
+      - 'cvln.agent.factory.deploy'                 # NOUVEAU — Écoute Factory
+    publish:
+      - 'kora.insights.generated'
+      - 'kora.report.ready'
+      - 'cvln.agent.health.ping'                    # NOUVEAU — Heartbeat
+    priority: 'high'
+
+  monitoring:
+    health_check_endpoint: 'https://agents.cvln.group/health/AGT-060'
+    metrics_export: 'prometheus'
+    alert_thresholds:
+      error_rate: 0.05                               # 5% max
+      latency_p99: '2000ms'                          # 2s max au 99e percentile
+      memory_usage: '80%'                            # 80% max
+
+capabilities:                                         # NOUVEAU — Regroupement
+  tools:
+    - id: 'tool-001'
+      name: 'python_pandas'
+      description: 'Manipulation et analyse de données tabulaires'
+      endpoint: 'internal://tools/python/pandas'
+      method: 'POST'
+      auth_required: true
+      rate_limit: '100/min'
+    - id: 'tool-002'
+      name: 'sql_query'
+      description: 'Exécution de requêtes SQL sur les warehouses KORA'
+      endpoint: 'internal://tools/sql/execute'
+      method: 'POST'
+      auth_required: true
+      rate_limit: '50/min'
+    - id: 'tool-003'
+      name: 'kora_api'
+      description: 'Appels API REST vers les services KORA'
+      endpoint: 'https://api.kora.group/v2'
+      method: 'GET'
+      auth_required: true
+      rate_limit: '200/min'
+
+  knowledge:                                          # RÉSOLU — Objets structurés
+    - id: 'ks-001'
+      type: 'document'
+      source_uri: 'https://docs.kora.group/v2.3/'
+      version: '2.3.1'
+      embedding_model: 'kimi-embedding-v1'
+      vector_id: 'vec-kora-docs-v2-3-001'
+      metadata:
+        language: 'fr'
+        domain: 'product_documentation'
+        confidentiality: 'internal'
+      last_updated: '2026-07-20T14:00:00Z'
+
+    - id: 'ks-002'
+      type: 'database'
+      source_uri: 'postgresql://analytics.kora.group:5432/users'
+      version: '1.0.0'
+      embedding_model: 'kimi-embedding-v1'
+      vector_id: 'vec-kora-db-schema-001'
+      metadata:
+        language: 'sql'
+        domain: 'database_schema'
+        confidentiality: 'restricted'
+      last_updated: '2026-08-01T09:00:00Z'
+
+    - id: 'ks-003'
+      type: 'document'
+      source_uri: 'https://cvln.group/knowledge/churn-prediction-methodology.pdf'
+      version: '1.2.0'
+      embedding_model: 'kimi-embedding-v1'
+      vector_id: 'vec-churn-methodology-001'
+      metadata:
+        language: 'fr'
+        domain: 'data_science'
+        confidentiality: 'internal'
+      last_updated: '2026-06-15T11:00:00Z'
+
+  permissions:
+    tools:
+      - tool_id: 'tool-001'
+        allowed: true
+      - tool_id: 'tool-002'
+        allowed: true
+        conditions: 'READ_ONLY on production DB'
+      - tool_id: 'tool-003'
+        allowed: true
+    knowledge:
+      - ks_id: 'ks-001'
+        access: 'read'
+      - ks_id: 'ks-002'
+        access: 'read'
+      - ks_id: 'ks-003'
+        access: 'read'
+
+  tests:
+    - id: 'test-001'
+      name: 'test_churn_model_accuracy'
+      type: 'unit'
+      script: 'tests/agt060/test_churn_model.py'
+      expected_result: 'accuracy >= 0.85'
+      timeout: '60s'
+    - id: 'test-002'
+      name: 'test_report_generation_speed'
+      type: 'integration'
+      script: 'tests/agt060/test_report_perf.py'
+      expected_result: 'generation_time <= 300s'
+      timeout: '120s'
+    - id: 'test-003'
+      name: 'test_data_privacy_compliance'
+      type: 'security'
+      script: 'tests/agt060/test_gdpr_compliance.py'
+      expected_result: 'no_pii_leak == true'
+      timeout: '30s'
+
+# =============================================================================
+# CHANGEMENTS CLÉS APPORTÉS PAR LA MIGRATION
+# =============================================================================
+#
+# 1. STRUCTURE : tools/knowledge/permissions/tests regroupés sous 'capabilities'
+# 2. KNOWLEDGE : Chaînes de texte → Objets KnowledgeSource avec vector_id
+# 3. STATUT : Ajout du champ 'status' pour le cycle de vie explicite
+# 4. MÉMOIRE : Ajout de vector_store_id et consolidation_policy
+# 5. SÉCURITÉ : Ajout de secrets_scope pour Vault
+# 6. MONITORING : Alert thresholds précis (error_rate, latency_p99, memory)
+# 7. OBJECTIFS : Format structuré avec ID, KPI cible, deadline ISO8601
+# 8. TESTS : Ajout d'un test de sécurité (RGPD/compliance)
+# 9. ÉVÉNEMENTS : Ajout de priority et topics Factory (heartbeat, deploy)
+#
+# =============================================================================

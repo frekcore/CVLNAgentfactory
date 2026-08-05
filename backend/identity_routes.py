@@ -120,6 +120,32 @@ async def delete_user(user_id: str, actor: dict = Depends(require_admin)):
     return {"result": "ok"}
 
 
+class RotatePayload(BaseModel):
+    ttl_hours: int | None = None
+
+
+@router.post("/identity/service/{agent_id}/rotate")
+async def rotate_service_token(agent_id: str, payload: RotatePayload, actor: dict = Depends(require_admin)):
+    """F-010 / ADR-007 — rotation du token de service, TTL optionnel, audit trail complet."""
+    identity = await db.identities.find_one({"agent_id": agent_id, "active": True}, {"_id": 0, "id": 1})
+    if not identity:
+        raise HTTPException(status_code=404, detail="Service identity not found")
+    token = "svc_" + secrets.token_urlsafe(32)
+    update = {"token_hash": hash_service_token(token), "rotated_at": now_iso(),
+              "rotated_by": f'human:{actor["id"]}'}
+    if payload.ttl_hours:
+        from datetime import timedelta
+        update["expires_at"] = (datetime.now(timezone.utc) + timedelta(hours=payload.ttl_hours)).isoformat()
+    else:
+        update["expires_at"] = None
+    await db.identities.update_one({"agent_id": agent_id, "active": True}, {"$set": update})
+    await log_authz(actor, "service_token_rotate", f"agent:{agent_id}", True,
+                    f"TTL={payload.ttl_hours or 'aucun'}h")
+    await publish("identity.token_rotated", actor["id"], {"agent_id": agent_id, "ttl_hours": payload.ttl_hours})
+    return {"agent_id": agent_id, "service_token": token, "expires_at": update["expires_at"],
+            "token_warning": "Store this token now — it will not be shown again."}
+
+
 @router.get("/identity/service-identities")
 async def list_service_identities(actor: dict = Depends(require_admin)):
     identities = await db.identities.find({}, {"_id": 0, "token_hash": 0}).to_list(500)

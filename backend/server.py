@@ -36,6 +36,10 @@ import doctrine_registry_routes
 import objectives_routes
 import runtime_routes
 import autonomous_routes
+import adl_v2_routes
+import knowledge_sources_routes
+import provider_layer
+import founder_council
 from seed_workforce import seed_workforce
 from doctrine import seed_doctrine
 
@@ -104,6 +108,10 @@ api_router.include_router(doctrine_registry_routes.router)
 api_router.include_router(objectives_routes.router)
 api_router.include_router(runtime_routes.router)
 api_router.include_router(autonomous_routes.router)
+api_router.include_router(adl_v2_routes.router)
+api_router.include_router(knowledge_sources_routes.router)
+api_router.include_router(provider_layer.router)
+api_router.include_router(founder_council.router)
 
 app.include_router(api_router)
 

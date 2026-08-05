@@ -1,0 +1,308 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://cvln.group/schemas/adl/2.0",
+  "title": "CVLN Agent Definition Language v2.0",
+  "description": "Schéma de validation strict pour les définitions d'agents CVLN",
+  "type": "object",
+  "required": ["adl_version", "agent", "brain", "capabilities"],
+  "properties": {
+    "adl_version": {
+      "type": "string",
+      "const": "2.0",
+      "description": "Version du schéma ADL"
+    },
+    "schema_uri": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI de référence du schéma"
+    },
+    "agent": {
+      "type": "object",
+      "required": ["id", "name", "pole", "entity", "version", "status", "mission", "vision", "objectives", "kpis"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^AGT-[0-9]{3}$",
+          "description": "Identifiant unique de l'agent (AGT-000 à AGT-999)"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Nom humain-readable de l'agent"
+        },
+        "pole": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0, "maximum": 9 },
+            { "type": "string", "minLength": 1 }
+          ],
+          "description": "Pôle de rattachement"
+        },
+        "entity": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Entité de rattachement (CVLN, KORA, FREK, etc.)"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\.[0-9]+\.[0-9]+$",
+          "description": "Version sémantique (semver)"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT", "PROTOTYPE", "STAGING", "PRODUCTION", "DEPRECATED", "ARCHIVE"],
+          "description": "Statut dans le cycle de vie"
+        },
+        "mission": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Mission de l'agent"
+        },
+        "vision": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Vision alignée avec l'entité"
+        },
+        "objectives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "description", "kpi", "target", "deadline"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^OBJ-[0-9]{3}$" },
+              "description": { "type": "string", "minLength": 5 },
+              "kpi": { "type": "string", "minLength": 1 },
+              "target": { "type": "number" },
+              "deadline": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "kpis": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["metric", "target", "frequency"],
+            "properties": {
+              "metric": { "type": "string" },
+              "target": { "type": "number" },
+              "frequency": {
+                "type": "string",
+                "enum": ["hourly", "daily", "weekly", "monthly"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "brain": {
+      "type": "object",
+      "required": ["registry", "memory", "identity", "events", "monitoring"],
+      "properties": {
+        "registry": {
+          "type": "object",
+          "required": ["registered_at", "last_updated", "registered_by"],
+          "properties": {
+            "registered_at": { "type": "string", "format": "date-time" },
+            "last_updated": { "type": "string", "format": "date-time" },
+            "registered_by": {
+              "type": "string",
+              "pattern": "^AGT-[0-9]{3}$",
+              "description": "Agent qui a validé l'enregistrement"
+            }
+          }
+        },
+        "memory": {
+          "type": "object",
+          "required": ["scope", "owner"],
+          "properties": {
+            "scope": {
+              "type": "string",
+              "enum": ["session", "persistent"],
+              "description": "Portée de la mémoire"
+            },
+            "owner": { "type": "string", "minLength": 1 },
+            "vector_store_id": { "type": "string" },
+            "consolidation_policy": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "interval": { "type": "string" },
+                "summary_model": { "type": "string" }
+              }
+            }
+          }
+        },
+        "identity": {
+          "type": "object",
+          "required": ["auth_method", "permissions"],
+          "properties": {
+            "auth_method": {
+              "type": "string",
+              "enum": ["api_key", "oauth", "mTLS"]
+            },
+            "permissions": {
+              "type": "object",
+              "required": ["read", "write", "entities"],
+              "properties": {
+                "read": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "write": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "entities": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "secrets_scope": { "type": "string" }
+          }
+        },
+        "events": {
+          "type": "object",
+          "required": ["subscribe", "publish"],
+          "properties": {
+            "subscribe": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "publish": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "priority": {
+              "type": "string",
+              "enum": ["low", "normal", "high", "critical"]
+            }
+          }
+        },
+        "monitoring": {
+          "type": "object",
+          "properties": {
+            "health_check_endpoint": { "type": "string", "format": "uri" },
+            "metrics_export": {
+              "type": "string",
+              "enum": ["prometheus", "datadog", "custom"]
+            },
+            "alert_thresholds": {
+              "type": "object",
+              "properties": {
+                "error_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+                "latency_p99": { "type": "string" },
+                "memory_usage": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "description", "endpoint", "method"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "endpoint": { "type": "string", "format": "uri" },
+              "method": {
+                "type": "string",
+                "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+              },
+              "auth_required": { "type": "boolean" },
+              "rate_limit": { "type": "string" }
+            }
+          }
+        },
+        "knowledge": {
+          "type": "array",
+          "description": "Sources de connaissances structurées (KnowledgeSource)",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "source_uri", "version", "embedding_model", "vector_id", "metadata", "last_updated"],
+            "properties": {
+              "id": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["document", "api", "database", "vector", "code"]
+              },
+              "source_uri": { "type": "string" },
+              "version": { "type": "string", "pattern": "^[0-9]+\.[0-9]+\.[0-9]+$" },
+              "embedding_model": { "type": "string" },
+              "vector_id": { "type": "string" },
+              "metadata": {
+                "type": "object",
+                "properties": {
+                  "language": { "type": "string" },
+                  "domain": { "type": "string" },
+                  "confidentiality": {
+                    "type": "string",
+                    "enum": ["public", "internal", "restricted", "secret"]
+                  }
+                }
+              },
+              "last_updated": { "type": "string", "format": "date-time" },
+              "ttl": { "type": "string" }
+            }
+          }
+        },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tool_id": { "type": "string" },
+                  "allowed": { "type": "boolean" },
+                  "conditions": { "type": "string" }
+                }
+              }
+            },
+            "knowledge": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "ks_id": { "type": "string" },
+                  "access": {
+                    "type": "string",
+                    "enum": ["read", "write", "admin"]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "name", "type", "script", "expected_result"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["unit", "integration", "e2e", "security"]
+              },
+              "script": { "type": "string" },
+              "expected_result": { "type": "string" },
+              "timeout": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

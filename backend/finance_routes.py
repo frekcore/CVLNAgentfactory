@@ -28,6 +28,102 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+# ---------- Financial Compliance Gatekeeper (F-003) ----------
+# Plafonds : <=10 000€ auto-approuvé · 10 000-100 000€ validation Wudy/admin · >100 000€ deux validateurs distincts
+AUTO_LIMIT, SINGLE_LIMIT = 10000, 100000
+
+
+class ExpenseRequest(BaseModel):
+    amount: float = Field(gt=0)
+    description: str = Field(min_length=5)
+    entity: str = ""
+    agent_id: Optional[str] = None
+    category: str = "other"
+
+
+@router.get("/expense-requests")
+async def list_expense_requests(status: Optional[str] = None, actor: dict = Depends(get_current_actor)):
+    query = {"status": status} if status else {}
+    return await db.expense_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+
+
+@router.post("/expense-request")
+async def request_expense(payload: ExpenseRequest, actor: dict = Depends(get_current_actor)):
+    from activity_journal import journal
+    from notifier import notify
+    if actor["type"] == "human" and actor["role"] == "reader":
+        raise HTTPException(status_code=403, detail="Readers cannot request expenses")
+    ts = now_iso()
+    required = 0 if payload.amount <= AUTO_LIMIT else (1 if payload.amount <= SINGLE_LIMIT else 2)
+    req = {"id": str(uuid.uuid4()), **payload.model_dump(),
+           "required_approvals": required, "approvals": [],
+           "status": "auto_approved" if required == 0 else "pending",
+           "requested_by": f'{actor["type"]}:{actor["id"]}', "created_at": ts, "updated_at": ts}
+    await db.expense_requests.insert_one({**req})
+    if required == 0:
+        await db.finance_entries.insert_one({
+            "id": str(uuid.uuid4()), "type": "cost", "category": payload.category,
+            "agent_id": payload.agent_id, "entity": payload.entity, "amount": payload.amount,
+            "currency": "EUR", "description": f"[auto<={AUTO_LIMIT}€] {payload.description}",
+            "date": ts[:10], "created_by": req["requested_by"], "created_at": ts})
+        await journal("action_executee", actor,
+                      f"Dépense auto-approuvée (Gatekeeper, ≤{AUTO_LIMIT}€) : {payload.amount}€ — {payload.description[:80]}",
+                      source="financial-gatekeeper", agent_id=payload.agent_id,
+                      evidence={"expense_id": req["id"]}, result="auto_approved")
+    else:
+        await journal("proposition", actor,
+                      f"Dépense {payload.amount}€ en attente ({required} validation(s) requise(s)) : {payload.description[:80]}",
+                      source="financial-gatekeeper", agent_id=payload.agent_id,
+                      evidence={"expense_id": req["id"]}, result="pending")
+        await notify(2, "Dépense — validation requise",
+                     f"{payload.amount}€ ({payload.entity or 'groupe'}) : {payload.description[:120]} — "
+                     f"{required} validation(s) requise(s) (plafonds Gatekeeper).", source="financial-gatekeeper")
+    return req
+
+
+@router.post("/expense-requests/{request_id}/approve")
+async def approve_expense(request_id: str, decision: str = "approved", actor: dict = Depends(get_current_actor)):
+    from activity_journal import journal
+    if not (actor["type"] == "human" and actor["role"] == "admin"):
+        raise HTTPException(status_code=403, detail="Seul un validateur humain (Wudy/admin) approuve les dépenses")
+    if decision not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="decision must be approved or rejected")
+    req = await db.expense_requests.find_one({"id": request_id}, {"_id": 0})
+    if not req:
+        raise HTTPException(status_code=404, detail="Expense request not found")
+    if req["status"] != "pending":
+        raise HTTPException(status_code=409, detail=f"Request is {req['status']}")
+    validator = f'human:{actor["id"]}'
+    if validator in req["approvals"]:
+        raise HTTPException(status_code=409, detail="Déjà validé par ce validateur — un second pair distinct est requis")
+    ts = now_iso()
+    if decision == "rejected":
+        await db.expense_requests.update_one({"id": request_id},
+                                             {"$set": {"status": "rejected", "updated_at": ts},
+                                              "$push": {"approvals": validator}})
+        await journal("decision_humaine", actor, f"Dépense REJETÉE : {req['amount']}€ — {req['description'][:80]}",
+                      source="financial-gatekeeper", evidence={"expense_id": request_id}, result="rejected")
+        return {"result": "rejected"}
+    approvals = req["approvals"] + [validator]
+    done = len(approvals) >= req["required_approvals"]
+    await db.expense_requests.update_one({"id": request_id},
+                                         {"$set": {"status": "approved" if done else "pending", "updated_at": ts},
+                                          "$push": {"approvals": validator}})
+    await journal("decision_humaine", actor,
+                  f"Validation dépense {len(approvals)}/{req['required_approvals']} : {req['amount']}€"
+                  + (" — APPROUVÉE" if done else " — en attente du second validateur"),
+                  source="financial-gatekeeper", evidence={"expense_id": request_id},
+                  result="approved" if done else "pending")
+    if done:
+        await db.finance_entries.insert_one({
+            "id": str(uuid.uuid4()), "type": "cost", "category": req["category"],
+            "agent_id": req["agent_id"], "entity": req["entity"], "amount": req["amount"],
+            "currency": "EUR", "description": f"[validé Gatekeeper] {req['description']}",
+            "date": ts[:10], "created_by": req["requested_by"], "created_at": ts})
+    return {"result": "approved" if done else "pending", "approvals": approvals,
+            "required": req["required_approvals"]}
+
+
 @router.post("/entries")
 async def add_entry(payload: FinanceEntry, actor: dict = Depends(get_current_actor)):
     if actor["type"] == "human" and actor["role"] == "reader":

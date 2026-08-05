@@ -1,0 +1,122 @@
+# ADL v2.0 — Agent Definition Language
+# Proposition de normalisation post-audit
+# Objectif : résoudre F-005 (structure incohérente) et F-002 (knowledge non structuré)
+
+adl_version: '2.0'
+schema_uri: 'https://cvln.group/schemas/adl/2.0'
+
+agent:
+  id: 'AGT-XXX'                    # Identifiant unique, format AGT-000 à AGT-999
+  name: 'string'                   # Nom humain-readable
+  pole: 'integer|string'           # Pôle de rattachement (0-9 ou nom)
+  entity: 'string'                 # Entité de rattachement (CVLN, KORA, FREK, etc.)
+  version: 'semver'                # Version sémantique (ex: 1.2.3)
+  status: 'enum'                   # DRAFT | PROTOTYPE | STAGING | PRODUCTION | DEPRECATED | ARCHIVE
+
+  mission: 'string'                # Mission de l'agent (1 paragraphe)
+  vision: 'string'                 # Vision alignée avec l'entité
+  objectives:                      # Objectifs SMART
+    - id: 'OBJ-001'
+      description: 'string'
+      kpi: 'string'
+      target: 'number'
+      deadline: 'ISO8601'
+
+  kpis:                            # Métriques de performance
+    - metric: 'string'
+      target: 'number'
+      frequency: 'enum'            # hourly | daily | weekly | monthly
+
+brain:
+  registry:
+    registered_at: 'ISO8601'
+    last_updated: 'ISO8601'
+    registered_by: 'AGT-000'       # Toujours Agent 000 ou Founder Council
+
+  memory:
+    scope: 'enum'                  # session | persistent
+    owner: 'string'                # Entité propriétaire de la mémoire
+    vector_store_id: 'string'      # Référence au Vector Store (Qdrant/Weaviate)
+    consolidation_policy:          # Politique de consolidation mémoire
+      enabled: true
+      interval: '24h'              # Fréquence de consolidation
+      summary_model: 'string'      # Modèle utilisé pour le résumé
+
+  identity:
+    auth_method: 'enum'            # api_key | oauth | mTLS
+    permissions:
+      read: ['resource_pattern']   # Patterns de ressources en lecture
+      write: ['resource_pattern']  # Patterns de ressources en écriture
+      entities: ['CVLN', 'KORA']   # Entités accessibles
+    secrets_scope: 'string'        # Référence Vault (ex: cvln/agents/AGT-XXX)
+
+  events:
+    subscribe: ['topic_pattern']   # Topics écoutés
+    publish: ['topic_pattern']     # Topics publiés
+    priority: 'enum'               # low | normal | high | critical
+
+  monitoring:
+    health_check_endpoint: 'url'
+    metrics_export: 'enum'         # prometheus | datadog | custom
+    alert_thresholds:
+      error_rate: 0.05             # 5% d'erreurs max
+      latency_p99: '500ms'         # Latence 99e percentile
+      memory_usage: '80%'          # Usage mémoire max
+
+capabilities:                      # NOUVEAU : regroupement des compétences
+  tools:
+    - id: 'tool-001'
+      name: 'string'
+      description: 'string'
+      endpoint: 'url'
+      method: 'enum'               # GET | POST | PUT | DELETE
+      auth_required: true
+      rate_limit: '100/min'
+
+  knowledge:                       # RÉSOLU : objets KnowledgeSource structurés
+    - id: 'ks-001'
+      type: 'enum'                 # document | api | database | vector | code
+      source_uri: 'string'         # URI de la source
+      version: 'semver'
+      embedding_model: 'string'    # ex: text-embedding-3-large
+      vector_id: 'string'          # ID dans le Vector Store
+      metadata:
+        language: 'fr'
+        domain: 'string'
+        confidentiality: 'enum'    # public | internal | restricted | secret
+      last_updated: 'ISO8601'
+      ttl: 'optional'              # Durée de vie optionnelle
+
+  permissions:                     # Permissions fines par capacité
+    tools:
+      - tool_id: 'tool-001'
+        allowed: true
+        conditions: 'optional'     # Conditions d'utilisation
+    knowledge:
+      - ks_id: 'ks-001'
+        access: 'read'             # read | write | admin
+
+  tests:
+    - id: 'test-001'
+      name: 'string'
+      type: 'enum'                 # unit | integration | e2e | security
+      script: 'string'             # Chemin ou contenu du test
+      expected_result: 'string'
+      timeout: '30s'
+
+# RÈGLES DE VALIDATION (JSON Schema équivalent)
+validation:
+  required_fields:
+    - agent.id
+    - agent.name
+    - agent.pole
+    - agent.version
+    - agent.status
+    - brain.memory.scope
+    - brain.identity.permissions
+  constraints:
+    id_format: '^AGT-[0-9]{3}$'
+    version_format: '^[0-9]+\.[0-9]+\.[0-9]+$'
+    status_values: ['DRAFT', 'PROTOTYPE', 'STAGING', 'PRODUCTION', 'DEPRECATED', 'ARCHIVE']
+    memory_scope_values: ['session', 'persistent']
+    knowledge_types: ['document', 'api', 'database', 'vector', 'code']

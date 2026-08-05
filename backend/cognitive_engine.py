@@ -70,12 +70,9 @@ def internal_response(text: str, classification: str, ctx: dict) -> str:
 
 
 async def llm_response(text: str, classification: str, ctx: dict, history: list, session_id: str) -> str | None:
-    """Accélérateur LLM interchangeable (Emergent universal key). Retourne None si indisponible → fallback interne."""
+    """Accélérateur via le Provider Adapter Layer (ADR-002) — routage stratégique, fallback souverain garanti."""
     try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        key = os.environ.get("EMERGENT_LLM_KEY")
-        if not key:
-            return None
+        from provider_layer import routed_generate
         system = (
             "Tu es CVLN Cognitive Interface, le deuxième cerveau opérationnel du groupe CVLN, au service de Laurent (fondateur). "
             "Tu réponds en français, de façon concise, structurée et orientée action. Tu respectes la Doctrine CVLN : "
@@ -85,12 +82,12 @@ async def llm_response(text: str, classification: str, ctx: dict, history: list,
             f"Contexte réel du groupe : {ctx}. "
             "Termine toujours par une recommandation claire et, si pertinent, invite à confirmer l'action proposée."
         )
-        chat = LlmChat(api_key=key, session_id=session_id, system_message=system).with_model(
-            "openai", os.environ.get("COGNITIVE_MODEL", "gpt-5.5"))
         convo = "\n".join(f'{m["role"]}: {m["content"][:300]}' for m in history[-6:])
         prompt = (f"Historique récent:\n{convo}\n\nMessage: {text}" if convo else text)
-        response = await chat.send_message(UserMessage(text=prompt))
-        return str(response)
+        result = await routed_generate(system, prompt, session_id)
+        if result["provider"] == "sovereign":
+            return None  # laisser cognitive_routes utiliser internal_response nativement
+        return result["text"]
     except Exception as e:
-        logger.warning(f"LLM accelerator unavailable, sovereign fallback: {e}")
+        logger.warning(f"Provider Adapter Layer unavailable, sovereign fallback: {e}")
         return None
