@@ -148,7 +148,7 @@ async def gate_check(actor: dict, action_type: str, summary: str,
                      f"{summary[:150]} — validation via Financial Gatekeeper.", source="financial-gatekeeper")
         return {"allowed": False, "level": 5, "decision": "pending_human_validation",
                 "rule_source": rule_source, "queue": "financial-gatekeeper",
-                "validation_request_id": req["id"],
+                "validation_request_id": req["id"], "expense_request_id": req["id"],
                 "reason": "Dépense bloquée — validation via la file unique du Financial Gatekeeper (plafonds Art. 13)."}
     vr = {"id": str(uuid.uuid4()), "action_type": action_type, "summary": summary,
           "agent_id": agent_id, "mission_id": mission_id, "critical": is_critical,
@@ -225,9 +225,10 @@ async def refusals(limit: int = 100, actor: dict = Depends(get_current_actor)):
 
 
 @router.get("/validation-requests")
-async def list_validation_requests(status: Optional[str] = None, actor: dict = Depends(get_current_actor)):
+async def list_validation_requests(status: Optional[str] = None, limit: int = 200,
+                                   actor: dict = Depends(get_current_actor)):
     query = {"status": status} if status else {}
-    return await db.validation_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return await db.validation_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(min(limit, 500))
 
 
 @router.post("/validation-requests/{request_id}/decide")

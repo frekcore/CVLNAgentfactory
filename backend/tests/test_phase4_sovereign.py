@@ -475,10 +475,12 @@ class TestAutonomousLive:
             assert cyc.get("validations_requested"), "validations_requested empty"
             # Confirm at least one validation_request row was created for this cycle
             vr_id = escalated[0]["validation_request_id"]
+            # LIAISON 2 (Vague 1) : les dépenses partent dans la file Financial Gatekeeper — accepter les DEUX files
             vr = admin.get(f"{BASE}/api/gate/validation-requests?limit=50", timeout=30)
-            if vr.status_code == 200:
-                ids = [x.get("id") for x in vr.json()]
-                assert vr_id in ids, f"validation_request {vr_id} not in list"
+            er = admin.get(f"{BASE}/api/finance/expense-requests", timeout=30)
+            ids = [x.get("id") for x in (vr.json() if vr.status_code == 200 else [])] + \
+                  [x.get("id") for x in (er.json() if er.status_code == 200 else [])]
+            assert vr_id in ids, f"request {vr_id} in neither validation_requests nor expense_requests"
         finally:
             # ALWAYS restore dry_run
             admin.post(f"{BASE}/api/autonomous/mode", json={"mode": "dry_run"}, timeout=30)

@@ -38,6 +38,10 @@ Conditions permanentes de Laurent :
 - ADR : /app/memory/adr/ADR-005-006-007-adaptations-souveraines.md · Artefacts Laurent : /app/memory/artifacts/
 
 ## Backlog priorisé
+- P0 FAIT (2026-08) : VAGUE 1 connectivité (it.11, 14/14 + 145 non-rég) : L1 alignment⇄cycle (éval seule), L2 file financière unique gate→Gatekeeper, L3 propositions unifiées (evolution 410→doctrine_registry, quorum importé de founder_council). PHASE A Constitution (it.10) + PHASE B Mission OS livrées. Blueprint intégration écosystème 10 entités sauvegardé (/app/memory/artifacts/INTEGRATION_ECOSYSTEME.md).
+- P0 SUIVANT : VAGUE 2 (validation Laurent requise) : L4 KnowledgeSources⇄chat cognitif (test 5 conversations avec/sans), L5 knowledge au bundle wake, L6 dual-write knowledge_items→sources, L7 Daily Closing/Morning Briefing enrichis (validations Gate + dépenses + amendements pending, lecture seule)
+- P1 : Phase C Simulation Layer (6 intents, 3 scénarios, heuristiques) ; Phase D Learning Layer (async au closing, Commons lecture seule, score<50→notif sans action auto) ; Phase E page Sovereign (4 onglets : Constitution/Mission OS/Simulations/Learning)
+- P2 reporté par Laurent : Event Bus consumers, verify auto planifié, ART-016 garde lifecycle, SO⇄OBJ (en Phase B suite)
 - P0 : Laurent valide les promotions Beta→Production depuis la console (pipeline prêt) ; test quorum complet Founder Council (nécessite tokens fondateurs AGT-001→010)
 - P1 : Déploiement multi-entités (Objectif 4 du PROMPT MASTER) : missions+agents+objectifs par entité KORA / FREKCORE / Factory Maker ; Morning Briefing étendu (ce qui a changé/avance/bloque/attend Laurent) — PHASE 6 initiale
 - P1 : Mode souverain complet (Objectif 7) : export complet des données (endpoint dump), réplication
