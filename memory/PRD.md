@@ -39,8 +39,8 @@ Conditions permanentes de Laurent :
 
 ## Backlog priorisé
 - P0 FAIT (2026-08) : VAGUE 1 connectivité (it.11, 14/14 + 145 non-rég) : L1 alignment⇄cycle (éval seule), L2 file financière unique gate→Gatekeeper, L3 propositions unifiées (evolution 410→doctrine_registry, quorum importé de founder_council). PHASE A Constitution (it.10) + PHASE B Mission OS livrées. Blueprint intégration écosystème 10 entités sauvegardé (/app/memory/artifacts/INTEGRATION_ECOSYSTEME.md).
-- P0 SUIVANT : VAGUE 2 (validation Laurent requise) : L4 KnowledgeSources⇄chat cognitif (test 5 conversations avec/sans), L5 knowledge au bundle wake, L6 dual-write knowledge_items→sources, L7 Daily Closing/Morning Briefing enrichis (validations Gate + dépenses + amendements pending, lecture seule)
-- P1 : Phase C Simulation Layer (6 intents, 3 scénarios, heuristiques) ; Phase D Learning Layer (async au closing, Commons lecture seule, score<50→notif sans action auto) ; Phase E page Sovereign (4 onglets : Constitution/Mission OS/Simulations/Learning)
+- P0 FAIT (2026-08-05) : VAGUE 2 (it.12, 15/15 + 265 non-rég, 0 bug) : L4 KnowledgeSources⇄chat (top-3 lexical <200ms, seuil 0.3, signalement si réponse hors mémoire souveraine, flag disable_knowledge_search) ; L5 knowledge_sources au bundle wake (≤1Mo, testé AGT-060, remis en sommeil) ; L6 dual-write knowledge_items→sources (consistency = alerte seule, 0 incohérence, 4 legacy pré-transition en lecture) ; L7 briefing/closing governance lecture seule (Gate+dépenses+amendements pending, alignment du jour). Entités TCV+SAYD créées draft (0 agent/0 budget) + CC2027 = SO-011 rattaché à Kiltikonet (règle Laurent « une entité = une seule source de vérité », pas de doublon). ART-005 ✅, constitution fail 0. Rapport : /app/memory/artifacts/RAPPORT_VAGUE2_P1.md · Comparaison L4 : VAGUE2_L4_COMPARAISON.md. Fix bonus : notifier 500 Telegram (try/except discovery), generate-batch 500 (ValidationError → failures), tests legacy Evolution alignés circuit 410.
+- **P1 SUIVANT (validation Laurent requise)** : Phase C Simulation Layer (6 intents, 3 scénarios, heuristiques) ; Phase D Learning Layer (async au closing, Commons lecture seule, score<50→notif sans action auto) ; Phase E page Sovereign (4 onglets : Constitution/Mission OS/Simulations/Learning)
 - P2 reporté par Laurent : Event Bus consumers, verify auto planifié, ART-016 garde lifecycle, SO⇄OBJ (en Phase B suite)
 - P0 : Laurent valide les promotions Beta→Production depuis la console (pipeline prêt) ; test quorum complet Founder Council (nécessite tokens fondateurs AGT-001→010)
 - P1 : Déploiement multi-entités (Objectif 4 du PROMPT MASTER) : missions+agents+objectifs par entité KORA / FREKCORE / Factory Maker ; Morning Briefing étendu (ce qui a changé/avance/bloque/attend Laurent) — PHASE 6 initiale
@@ -49,7 +49,8 @@ Conditions permanentes de Laurent :
 - P2 : Qdrant/NATS/Vault sur infrastructure dédiée CVLN (interfaces prêtes, ADR rédigés)
 
 ## Notes techniques
-- pytest : lancer les suites en série (-n 0) — 6 suites dans /app/backend/tests/
+- pytest : lancer les suites en série (-n 0) avec REACT_APP_BACKEND_URL exporté — 8 suites dans /app/backend/tests/ (282 tests, skips légitimes : 1 clôture/jour, doublons agents QA persistés)
+- Ne JAMAIS éditer de fichier backend pendant qu'une suite pytest tourne (hot reload → 500 en plein run)
 - Le proxy avale les corps des réponses 502 → toujours renvoyer 200 structuré pour les échecs d'intégrations externes
 - Telegram : push échoue tant que Laurent n'a pas envoyé /start au bot (persisted_only, comportement propre)
 - AGT-034 token roté avec TTL 1h par les tests (expiré) ; AGT-035 roté TTL 720h
