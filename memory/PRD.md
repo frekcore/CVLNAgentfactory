@@ -1,70 +1,51 @@
-# PRD — CVLN Agent Factory (Agent Operating System Layer)
+# PRD — CVLN Agent Factory (Sovereign Cognitive Operating System)
 
-## Problem statement (original)
-Plateforme Palier 3 (V1 : Registry + ADL) : système d'exploitation pour agents IA — backend réel des 5 Core Services (Registry, Identity, Memory, Event Bus, Monitoring) + console web React de pilotage. Indépendance fournisseur (pas d'exécution LLM en V1). Extension demandée : Agent Generator Engine (génération industrielle d'agents depuis un catalogue maître, pas de création manuelle des 283 agents), Doctrine Engine (règles CVLN héritées automatiquement), endpoints API réservés pour les systèmes externes indépendants (Laurent.ia, KORA, FREK, Kiltikonet, LabelOS, Good Mood, CVL Academy, CVLN Central).
+## Vision
+Infrastructure cognitive opérationnelle **souveraine** du groupe CVLN (Laurent, fondateur) : mémoire, doctrine, gouvernance, orchestration, agents, objectifs, journaux, runtime et continuité propriétaires. Les LLM (Emergent/Anthropic/etc.) sont des **accélérateurs interchangeables**, jamais le cœur. Capable de piloter plusieurs entités : Factory Maker Studio, KORA, FREKCORE, etc.
 
-## User choices
-- Interface FR/EN dès le départ (toggle dans la console)
-- Endpoint placeholder réservé pour Laurent.ia (501)
-- 11 agents fondateurs fournis par Laurent : AGT-000 (CVLN Agent Architect) → AGT-010, seedés en Production
-- Admin : laurent@cvln.fr / CVLNfactory2026! · Token service AGT-000 : voir /app/memory/test_credentials.md
+## Stack
+FastAPI + MongoDB (Motor) + React (Tailwind + Shadcn, sonner pour les toasts) + JWT (admin/operator/reader) + identités service `svc_` + PWA + Telegram + Emergent LLM key (via Provider Adapter Layer uniquement).
 
-## Architecture
-- Backend FastAPI modulaire (un module par Core Service, déployables ensemble) : server.py, registry_routes.py, identity_routes.py, core_routes.py (events/memory/audit/monitoring), generator_routes.py, doctrine.py, external_routes.py, adl_schema.py (Pydantic), auth_utils.py (JWT + tokens service), event_bus.py, seed_data.py
-- MongoDB collections : agents, versions (historique immuable version+lifecycle), events, identities, users, memory_entries, memory_access_logs, audit_logs, catalog_entries, doctrine
-- Frontend React (JS/JSX + Tailwind + shadcn base, Phosphor icons, thème dark void/cyan) : pages Dashboard, Agents, AgentDetail (fiche/ADL/timeline/diff), ADLEditor, Generator, Doctrine, Events, Audit, Monitoring, Users + i18n FR/EN + AuthContext
+## Utilisateur
+- Admin : laurent@cvln.fr / CVLNfactory2026! (voir /app/memory/test_credentials.md)
+- Service AGT-000 : Bearer svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c
 
-## Règles de gouvernance encodées
-- Seul AGT-000 (identité de service) ou un admin écrit dans le Registry (require_registry_writer)
-- Beta → Production exige une validation humaine admin
-- Aucune communication inter-pôle hors Event Bus (publish restreint + topics normés)
-- Chaque décision d'autorisation journalisée (audit_logs)
-- Monitoring lecture seule stricte
+## Mission en cours : CVLN SOVEREIGN RUNTIME ARCHITECTURE v1.0 (protocole CVLN-GOV-AUDIT-001)
+Conditions permanentes de Laurent :
+- Jamais de promotion en masse : chaque agent suit Draft→Prototype→Beta(Staging)→Production individuellement ; **la validation Production est réservée à Laurent depuis la console**
+- Founder Council = fallback uniquement (AGT-000 reste nominal)
+- DRY RUN obligatoire avant tout mode live du runtime autonome
+- ADR obligatoires pour chaque adaptation souveraine
+- Réutiliser l'existant, zéro doublon, rapport d'impact avant modif, journaliser tout, validation Laurent pour : dépenses, contrats, publication externe, suppression, stratégie, recrutement, doctrine, activation production
 
-## Implémenté (2026-06 → 2026-07)
-- [x] Phase 1 : Schéma ADL Pydantic + Registry (CRUD, cycle de vie, versions, doublons id/nom/mission-similarité) + seed 11 fondateurs
-- [x] Phase 2 : Identity (JWT 8h, rôles admin/opérateur/lecteur, identités de service svc_, journalisation authz)
-- [x] Phase 3 : Console web complète (annuaire filtrable, fiches, éditeur ADL validation temps réel + compile + import/export YAML + diff versions, timeline)
-- [x] Phase 4 : Event Bus (journal complet, publish contrôlé) + Memory (espaces isolés, journal d'accès) + journaux d'audit console
-- [x] Phase 5 : Monitoring (santé 5 services, dashboard supervision, alertes)
-- [x] Agent Generator Engine : catalogue maître + pipeline auto 11 étapes (analyse → ADL → doctrine → doublon → ID auto → identité → permissions → mémoire → events → Registry → cycle de vie jusqu'à Beta / Production si admin)
-- [x] Daily Closing Service (2026-07-10) : rapports quotidiens par agent (isolation identité de service), pipeline de clôture AGT-000 (collecte → contrôle anomalies → snapshots mémoire versionnés 3 niveaux session/operational/strategic sans suppression → états quotidiens Registry → Daily Report global → CVLN Daily Executive Report pour Laurent), Morning Briefing au démarrage, événements daily.closing.started / daily.report.generated / agent.daily.completed / memory.snapshot.created / system.ready.next.day, clôture idempotente (409), page console "Clôture quotidienne" — testé iteration_2 (100%)
-- [x] Autonomous Workforce Layer (2026-07-10, testé iteration_3 100%) :
-  - Entity Registry (Business Reality Layer) : 10 entités CVLN seedées, CRUD, association d'agents (page Entités)
-  - 5 agents pilotes opérationnels AGT-011→AGT-015 (Digital CEO, Digital CFO, Knowledge Manager, Operations, Marketing Strategy) seedés en Beta avant industrialisation
-  - Niveaux d'autonomie 1-4 (observation → recommandation → exécution contrôlée → autonomie opérationnelle), L3-L4 réservés à la validation humaine admin
-  - Agent Workspace : tâches (P0-P2, open/in_progress/done/blocked), briefing quotidien par agent, mémoire, connaissances (onglet Workspace de la fiche agent)
-  - Financial Intelligence Layer : écritures cost/revenue, ROI par agent/entité, prévision 30j (page Finance)
-  - Knowledge Sovereignty Layer : ingestion (Obsidian/docs/archives ChatGPT-Claude/MD/PDF), classification auto 7 catégories, versionnée, routage vers la mémoire strategic des agents cibles via AGT-002, validation admin (page Connaissances)
-  - Improvement Loop : propositions d'évolution (improve_agent/create_agent/modify_workflow/optimize_procedure) proposables par AGT-000, décision humaine admin uniquement
-  - Founder Control Center : vue souveraine pour Laurent (état groupe, validations en attente, finance, dernière clôture)
-  - Industrial Mode : import en masse du catalogue maître (CSV avec listes ';' ou JSON) + génération batch all_pending jusqu'à Beta "Ready For Assignment"
-- [x] Doctrine Engine : 6 sections de règles (architecture, sécurité, communication, autonomie, gouvernance, stratégie), héritage auto, /api/doctrine/check
-- [x] 8 endpoints externes réservés 501 (/api/external/*, /api/laurent-ia)
-- [x] Testing agent iteration_1 : 100% backend + frontend
-
-- [x] PHASE 0 CVLN-GOV-AUDIT-001 (2026-07-10, testé iteration_5 100%) : fix bug Telegram (POST /api/notifications/test → toujours 200 {pushed, push_error}, plus de 502 avalé par l'ingress ; toast sonner propre côté CommandMobile ; garde HTML + troncature 240c dans formatApiError) + snapshot pré-évolution cvln_backup_20260710_153622.json.gz (173 docs, 19 collections)
-
-## Mission en cours : CVLN-ARCH-CONTINUITY-001 (protocole CVLN-GOV-AUDIT-001)
-Transformer CVLN en infrastructure cognitive persistante, traçable, gouvernée. Phases validées par Laurent :
-- [x] PHASE 0 — Sécurisation (fix Telegram + snapshot)
-- [x] PHASE 1 — CVLN-GOV-PHASE1-001 (2026-07-10, testé iteration_6 : backend 21/21, frontend 100%) : Permission Gate v2 (6 niveaux, règles agent>mission>action_type>défaut, 6 actions critiques non contournables → validation Laurent, escalade auto + notif N2, journal des refus) + Activity Journal v2 (collection activity_journal, 8 types, helper journal(), fusion lecture /journal/unified avec audit_logs+events, zéro migration) + hooks missions deliver/validate + page Gouvernance (4 onglets). gate_check() réutilisable par le Runtime PHASE 4.
-- [x] PHASE 2 — Registres persistants (2026-07-10, testé iteration_7 : 26/26 backend + 21/21 non-régression Phase 1, frontend 100%) : Doctrine Registry v2 (doctrine_registry + doctrine_versions snapshots immuables, statuts proposition→validee→active→archivee STATUS_FLOW strict, validateur humain admin only, 21 règles legacy importées idempotent, liens agents/missions, page Doctrine onglet v2) + Memory Layer v2 (memory_entries étendue — scopes doctrinal/learning ajoutés, source/confidence/provenance/validation, /memory-layers/summary, validation humaine par entrée, zéro migration) + Objective Registry (objectives, codes OBJ-NNN, next_action, dépendances, requires_human_validation → clôture admin only, GET /objectives/pursue pour le Runtime PHASE 4, page Objectifs)
-- [x] PHASE 3 — Agent Runtime (2026-07-10, testé iteration_8 : 18/18 backend + 47/47 non-régression, frontend 100%) : champ runtime sur agents (6 états actif/sommeil/attente_validation/erreur/suspendu/termine, transitions strictes 409 + journal action_bloquee, défaut sommeil non initialisé = compat totale), checkpoints (agent_checkpoints, auto à la mise en sommeil), wake avec restauration complète (identité/rôle/doctrine/objectifs/historique/permissions/gate_rules/validations pendantes/checkpoint/contexte opérationnel + missing_information signalé jamais inventé), transitions critiques via Permission Gate (→termine, suspendu→actif : HTTP 423 + escalade, revalidation par validation_id), runtime_recovery au démarrage (runtime_recoveries + journal), panneau Runtime sur fiche agent. NOTE testing : suite phase3 à lancer en série (pytest -n 0).
-- [ ] PHASE 4 — Autonomous Runtime Layer (cycle 9 étapes, DRY RUN obligatoire au départ)
-- [ ] PHASE 5 — Recovery & Continuity (checkpoints agent/mission, reprise, contrôle cohérence)
-- [ ] PHASE 6 — Morning Briefing étendu + Runtime Dashboard
-- [ ] PHASE 7 — Tests obligatoires (8 scénarios) avant activation production
-Règles : réutiliser l'existant, zéro doublon, rapport d'impact avant modif, compat données existantes, versionner, journaliser, jamais d'autonomie critique sans Permission Gate, validation humaine Laurent pour stratégie/finance/gouvernance/publication/suppression.
+## Réalisé (tout testé, iterations 5→9, 100%)
+- **PHASE 0** (it.5) : fix bug Telegram (200 {pushed, push_error}), snapshot pré-évolution
+- **PHASE 1** (it.6) : Permission Gate v2 (6 niveaux, règles agent>mission>action, 6 actions critiques non contournables, escalade auto → validation_requests + Telegram) + Activity Journal v2 (8 types, /journal/unified fusion lecture avec audit_logs+events) + page Gouvernance
+- **PHASE 2** (it.7) : Doctrine Registry v2 (statuts proposition→validee→active→archivee, versions immuables, 21 règles legacy importées, validateur humain) + Memory Layer v2 (scopes doctrinal/learning + source/confidence/provenance/validation, même collection) + Objective Registry (OBJ-NNN, next_action, dépendances, /objectives/pursue) + pages Objectifs & Doctrine v2
+- **PHASE 3** (it.8) : Agent Runtime (6 états actif/sommeil/attente_validation/erreur/suspendu/termine, transitions strictes, checkpoints auto, wake avec restauration complète + missing_information signalé, transitions critiques via Gate HTTP 423, recovery au démarrage) + panneau Runtime fiche agent
+- **PHASE 4 + RAPPORT AUDIT** (it.9, 34/34 + 65 non-rég) :
+  - Autonomous Runtime gouverné : cycle 9 étapes déterministe (observer→closing), mode dry_run par défaut (live exige ≥1 dry run + gate), détection d'intentions critiques par mots-clés (acheter/publier/supprimer/…) → escalade Laurent, reconcile des cycles interrompus au boot, page /runtime
+  - S0.1 ADL v2.0 : JSON Schema Draft-07 (fichiers Laurent), /adl/v2/validate + /migrate-preview (jamais de migration en masse)
+  - S0.2 KnowledgeSource + SovereignLexicalStore (chunks+recherche lexicale Mongo, interface IVectorStore → Qdrant plus tard, ADR-005)
+  - S0.3 Audit Pôle 0b : AGT-011→015 documentés (pole_0b_audit), aucun doublon — /app/memory/artifacts/AUDIT_POLE_0B.md
+  - Inventaire complet : **176 agents AGT-000→175** (20 Pôle 1 créés → Beta, 135 Draft de Laurent intacts, 14 Production actifs)
+  - Provider Adapter Layer (ADR-002) : IAIProvider + ModelRouter stratégies quality/cost/sovereign_only, fallback souverain garanti, modèles claude-sonnet-4-6 / gpt-5.4 / gemini-3.1-pro-preview, journal provider_calls
+  - Founder Council (ADR-001) : quorum 3 fondateurs AGT-001→010, uniquement si AGT-000 indisponible (409 sinon), approbation à usage unique via header X-Council-Approval
+  - Event Bus résilient (ADR-006) : spool local JSONL + DLQ + /events/replay-spool
+  - Auto-healing (F-008) : monitoring publie monitoring.action (throttle 10min), /monitoring/heal répare erreur→actif depuis checkpoint
+  - Secrets (ADR-007) : rotation tokens service + TTL expires_at + audit
+  - Financial Gatekeeper (F-003) : ≤10K€ auto / ≤100K€ 1 validation / >100K€ 2 validateurs distincts (409 si même admin)
+- ADR : /app/memory/adr/ADR-005-006-007-adaptations-souveraines.md · Artefacts Laurent : /app/memory/artifacts/
 
 ## Backlog priorisé
-- P0 : rien de bloquant
-- P1 : lockout brute-force (5 tentatives / 15 min) sur le login ; CORS origins explicites (actuellement * — cookies inutilisés côté cross-origin, Bearer utilisé) ; validation enum autonomy_level au niveau du schéma ADL (actuellement contrôlé par doctrine seulement)
-- P2 : pagination annuaire (>284 agents), import CSV/JSON en masse du catalogue maître, éditeur ADL vue formulaire bidirectionnelle, refresh token, graphe interactif de l'écosystème (D3), contrats d'interface réels des systèmes externes (V2), couche d'exécution LLM provider-agnostic (V2)
+- P0 : Laurent valide les promotions Beta→Production depuis la console (pipeline prêt) ; test quorum complet Founder Council (nécessite tokens fondateurs AGT-001→010)
+- P1 : Déploiement multi-entités (Objectif 4 du PROMPT MASTER) : missions+agents+objectifs par entité KORA / FREKCORE / Factory Maker ; Morning Briefing étendu (ce qui a changé/avance/bloque/attend Laurent) — PHASE 6 initiale
+- P1 : Mode souverain complet (Objectif 7) : export complet des données (endpoint dump), réplication
+- P2 : Migration ADL v2.0 agent par agent (previews prêts, données v2 à compléter : vision, kpi targets) ; création des 108 agents restants non nommés ; purge périodique runtime_recoveries ; scheduler de cycles autonomes (cron interne)
+- P2 : Qdrant/NATS/Vault sur infrastructure dédiée CVLN (interfaces prêtes, ADR rédigés)
 
-## Next tasks
-1. Import réel du catalogue maître des 283 agents (l'infrastructure bulk-import + generate-batch est prête — attendre la validation du pilote par Laurent)
-2. Scheduler automatique de clôture (cron 23h59 UTC) + soumission auto des rapports par les agents au Runtime (V2)
-3. Contrats d'interface réels vers les entités (Laurent.ia, KORA, FREK… — endpoints 501 réservés en place)
-4. Brute-force lockout + refresh token
-5. UX : multi-select agents cibles (Knowledge) en composant chips
+## Notes techniques
+- pytest : lancer les suites en série (-n 0) — 6 suites dans /app/backend/tests/
+- Le proxy avale les corps des réponses 502 → toujours renvoyer 200 structuré pour les échecs d'intégrations externes
+- Telegram : push échoue tant que Laurent n'a pas envoyé /start au bot (persisted_only, comportement propre)
+- AGT-034 token roté avec TTL 1h par les tests (expiré) ; AGT-035 roté TTL 720h

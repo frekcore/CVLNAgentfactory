@@ -123,9 +123,11 @@ async def list_providers(actor: dict = Depends(get_current_actor)):
     out = []
     for name, meta in CATALOG.items():
         out.append({"provider": name, **meta, "healthy": await ADAPTERS[name].health_check()})
-    calls_24h = await db.provider_calls.count_documents({})
+    from datetime import timedelta
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    calls_24h = await db.provider_calls.count_documents({"timestamp": {"$gte": since}})
     return {"providers": out, "strategy": await get_strategy(), "strategies": list(STRATEGIES.keys()),
-            "total_calls_logged": calls_24h,
+            "calls_24h": calls_24h,
             "principle": "Aucun appel direct provider hors de cette couche (ADR-002). Fallback souverain garanti."}
 
 

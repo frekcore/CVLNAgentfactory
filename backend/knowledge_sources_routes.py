@@ -101,7 +101,7 @@ async def create_source(payload: KnowledgeSourcePayload, actor: dict = Depends(g
     if actor["type"] == "human" and actor["role"] == "reader":
         raise HTTPException(status_code=403, detail="Readers cannot ingest knowledge")
     count = await db.knowledge_sources.count_documents({})
-    ks_id = f"ks-{count + 1:04d}"
+    ks_id = f"ks-{count + 1:04d}-{uuid.uuid4().hex[:6]}"
     ts = now_iso()
     n_chunks = await vector_store.ingest(ks_id, payload.content, payload.agent_ids)
     source = {"id": ks_id, "type": payload.type, "source_uri": payload.source_uri,

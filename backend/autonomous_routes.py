@@ -134,7 +134,8 @@ async def run_cycle(actor: dict = Depends(get_current_actor)):
         step(2, "lire_objectifs", f"{len(pursuable)} objectif(s) poursuivable(s), {len(blocked)} bloqué(s) par dépendances")
 
         # 3. Prioriser (P0 > P1 > P2, activité la plus ancienne d'abord)
-        pursuable.sort(key=lambda o: (o["priority"], o.get("last_activity", "")))
+        prio_weight = {"P0": 0, "P1": 1, "P2": 2}
+        pursuable.sort(key=lambda o: (prio_weight.get(o["priority"], 9), o.get("last_activity", "")))
         top = pursuable[:5]
         step(3, "prioriser", f"Top {len(top)} : {', '.join(o['code'] for o in top)}" if top else "Aucun objectif à prioriser")
 

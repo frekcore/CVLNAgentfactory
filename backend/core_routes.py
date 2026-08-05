@@ -189,7 +189,12 @@ async def health(actor: dict = Depends(get_current_actor)):
     services.append({"name": "Monitoring", "status": "healthy", "detail": f"uptime {int(time.time() - START_TIME)}s"})
     # F-008 : le Monitoring PUBLIE des événements d'action (il n'exécute pas — séparation stricte)
     agents_in_error = [a["id"] async for a in db.agents.find({"runtime.state": "erreur"}, {"_id": 0, "id": 1})]
+    throttle_since = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
     for aid in agents_in_error:
+        recent = await db.events.find_one({"topic": "monitoring.action", "payload.agent_id": aid,
+                                           "timestamp": {"$gte": throttle_since}}, {"_id": 0, "id": 1})
+        if recent:
+            continue
         await publish("monitoring.action", "monitoring",
                       {"action": "AGENT_RESTART", "agent_id": aid,
                        "reason": "agent en état erreur détecté — réparation via POST /monitoring/heal"})
