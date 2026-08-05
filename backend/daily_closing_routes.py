@@ -185,6 +185,7 @@ async def close_day(payload: ClosePayload, actor: dict = Depends(require_registr
             "priorities": flatten(reports, "next_actions"),
             "open_tasks": [f"{aid} : rapport quotidien manquant" for aid in missing],
             "critical_missions": [f"{i['agent_id']} : {i['reason'] or 'intervention humaine requise'}" for i in interventions]},
+        "governance": await governance_snapshot(),
         "average_confidence": avg_conf,
         "closed_by": f'{actor["type"]}:{actor["id"]}', "note": payload.note, "created_at": now_iso(),
     }
@@ -263,6 +264,32 @@ async def memory_snapshots(agent_id: Optional[str] = None, tier: Optional[str] =
     return await db.memory_snapshots.find(query, {"_id": 0}).sort("created_at", -1).to_list(500)
 
 
+# ---------- L7 — Gouvernance (lecture seule, aucune action automatique) ----------
+async def governance_snapshot() -> dict:
+    pending_validations = await db.validation_requests.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    pending_expenses = await db.expense_requests.find({"status": "pending"}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    pending_amendments = await db.doctrine_registry.find(
+        {"status": "proposition"}, {"_id": 0, "id": 1, "title": 1, "status": 1, "created_at": 1}
+    ).sort("created_at", -1).to_list(100)
+    since = f"{today()}T00:00:00"
+    scores = []
+    async for c in db.autonomous_cycles.find({"started_at": {"$gte": since}}, {"_id": 0, "analyses": 1}):
+        for a in (c.get("analyses") or []):
+            al = a.get("alignment")
+            if al and al.get("score") is not None:
+                scores.append(al["score"])
+    return {
+        "read_only": True,
+        "note": "Lecture seule — aucune action automatique sur les validations en attente",
+        "pending_gate_validations": {"count": len(pending_validations), "items": pending_validations[:10]},
+        "pending_expense_requests": {"count": len(pending_expenses), "items": pending_expenses[:10]},
+        "pending_amendments": {"count": len(pending_amendments), "items": pending_amendments[:10]},
+        "alignment_today": {"evaluations": len(scores),
+                            "average_score": round(sum(scores) / len(scores), 4) if scores else None,
+                            "low_alignment_count": sum(1 for s in scores if s < 0.3)},
+    }
+
+
 # ---------- Morning Briefing ----------
 @router.get("/briefing")
 async def morning_briefing(actor: dict = Depends(get_current_actor)):
@@ -296,4 +323,5 @@ async def morning_briefing(actor: dict = Depends(get_current_actor)):
         "open_missions": last["next_day_plan"]["open_tasks"],
         "unresolved_errors": last["general_state"]["agents_in_error"],
         "active_agents": stats_agents,
+        "governance": await governance_snapshot(),
     }

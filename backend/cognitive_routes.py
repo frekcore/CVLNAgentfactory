@@ -1,3 +1,4 @@
+import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends
@@ -7,13 +8,17 @@ from database import db
 from auth_utils import get_current_actor, log_authz
 from event_bus import publish
 from cognitive_engine import classify_message, build_context, internal_response, llm_response, ACTION_LABELS
+from knowledge_sources_routes import vector_store, dual_write_from_legacy
 
 router = APIRouter(prefix="/cognitive", tags=["cognitive-interface"])
+
+MIN_KNOWLEDGE_RELEVANCE = 0.3
 
 
 class ChatPayload(BaseModel):
     message: str = Field(min_length=2)
     conversation_id: Optional[str] = None
+    disable_knowledge_search: bool = False
 
 
 def now_iso():
@@ -27,11 +32,31 @@ async def cognitive_chat(payload: ChatPayload, actor: dict = Depends(get_current
     ctx = await build_context()
     history = await db.cognitive_messages.find({"conversation_id": conv_id}, {"_id": 0}).sort("timestamp", 1).to_list(50)
 
+    # L4 — recherche souveraine top-3 avant chaque réponse (moteur lexical interne, aucun appel fournisseur)
+    relevant, retrieval_ms = [], 0.0
+    if not payload.disable_knowledge_search:
+        t0 = time.perf_counter()
+        hits = await vector_store.search(payload.message, None, 3)
+        retrieval_ms = round((time.perf_counter() - t0) * 1000, 1)
+        relevant = [h for h in hits if h["score"] >= MIN_KNOWLEDGE_RELEVANCE]
+        if relevant:
+            src_ids = list({h["source_id"] for h in relevant})
+            titles = {s["id"]: s["title"] async for s in db.knowledge_sources.find(
+                {"id": {"$in": src_ids}}, {"_id": 0, "id": 1, "title": 1})}
+            for h in relevant:
+                h["source_title"] = titles.get(h["source_id"], "")
+    knowledge_block = " | ".join(f'[{h["source_title"]}] {h["text"][:250]}' for h in relevant) or None
+    sovereign_knowledge = {
+        "used": bool(relevant), "retrieval_ms": retrieval_ms,
+        "sources": [{"source_id": h["source_id"], "title": h["source_title"], "score": h["score"]} for h in relevant],
+        "note": None if relevant else "Réponse non fondée sur la mémoire souveraine (aucune source suffisamment pertinente)"}
+
     reply = await llm_response(payload.message, classification, ctx,
-                               [{"role": m["role"], "content": m["content"]} for m in history], conv_id)
+                               [{"role": m["role"], "content": m["content"]} for m in history], conv_id,
+                               knowledge_block=knowledge_block)
     engine = "llm-accelerator" if reply else "internal-sovereign"
     if not reply:
-        reply = internal_response(payload.message, classification, ctx)
+        reply = internal_response(payload.message, classification, ctx, knowledge_hits=relevant)
 
     ts = now_iso()
     user_msg = {"id": str(uuid.uuid4()), "conversation_id": conv_id, "role": "user",
@@ -39,7 +64,8 @@ async def cognitive_chat(payload: ChatPayload, actor: dict = Depends(get_current
                 "proposed_action": ACTION_LABELS[classification], "action_executed": False,
                 "actor_id": actor["id"], "timestamp": ts}
     assistant_msg = {"id": str(uuid.uuid4()), "conversation_id": conv_id, "role": "assistant",
-                     "content": reply, "engine": engine, "timestamp": now_iso()}
+                     "content": reply, "engine": engine, "sovereign_knowledge": sovereign_knowledge,
+                     "timestamp": now_iso()}
     await db.cognitive_messages.insert_one({**user_msg})
     await db.cognitive_messages.insert_one({**assistant_msg})
     await db.cognitive_conversations.update_one(
@@ -48,7 +74,8 @@ async def cognitive_chat(payload: ChatPayload, actor: dict = Depends(get_current
          "$setOnInsert": {"id": conv_id, "created_at": ts}}, upsert=True)
     return {"conversation_id": conv_id, "classification": classification,
             "proposed_action": ACTION_LABELS[classification], "engine": engine,
-            "user_message_id": user_msg["id"], "reply": reply}
+            "user_message_id": user_msg["id"], "reply": reply,
+            "sovereign_knowledge": sovereign_knowledge}
 
 
 @router.post("/confirm/{message_id}")
@@ -99,7 +126,10 @@ async def confirm_action(message_id: str, actor: dict = Depends(get_current_acto
                 "auto_classified": True, "content": text, "target_agents": [], "status": "ingested",
                 "version": 1, "created_by": f'{actor["type"]}:{actor["id"]}', "created_at": ts}
         await db.knowledge_items.insert_one({**item})
-        result = {"type": "knowledge_created", "knowledge_id": item["id"], "category": category}
+        # L6 — dual write transition : réplique v2 (legacy jamais supprimé)
+        v2_id = await dual_write_from_legacy(item)
+        await db.knowledge_items.update_one({"id": item["id"]}, {"$set": {"v2_source_id": v2_id}})
+        result = {"type": "knowledge_created", "knowledge_id": item["id"], "category": category, "v2_source_id": v2_id}
 
     await db.cognitive_messages.update_one({"id": message_id}, {"$set": {"action_executed": True, "action_result": result}})
     await log_authz(actor, "cognitive_action", f"message:{message_id}", True, result["type"])

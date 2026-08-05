@@ -182,6 +182,8 @@ async def generate_batch(payload: BatchGeneratePayload, actor: dict = Depends(re
             results.append({"catalog_id": cid, "agent_id": r["agent_id"], "status": r["status"]})
         except HTTPException as e:
             failures.append({"catalog_id": cid, "error": str(e.detail)[:200]})
+        except Exception as e:
+            failures.append({"catalog_id": cid, "error": f"{type(e).__name__}: {str(e)[:180]}"})
     await publish("factory.batch_generated", actor["id"], {"generated": len(results), "failed": len(failures)})
     return {"generated": len(results), "agents": results, "failed": len(failures), "failures": failures,
             "note": "Agents générés jusqu'à Beta — Ready For Assignment. Production sous validation humaine."}

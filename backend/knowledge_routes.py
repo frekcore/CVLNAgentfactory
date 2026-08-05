@@ -68,6 +68,12 @@ async def ingest(payload: IngestPayload, actor: dict = Depends(get_current_actor
             "created_by": f'{actor["type"]}:{actor["id"]}', "created_at": ts}
     await db.knowledge_items.insert_one({**item})
 
+    # L6 — dual write transition : réplique v2 dans knowledge_sources (legacy jamais supprimé)
+    from knowledge_sources_routes import dual_write_from_legacy
+    v2_source_id = await dual_write_from_legacy(item)
+    await db.knowledge_items.update_one({"id": item["id"]}, {"$set": {"v2_source_id": v2_source_id}})
+    item["v2_source_id"] = v2_source_id
+
     # Pipeline: Ingestion → AGT-002 → CVLN Brain → mémoire des agents concernés
     for agent_id in valid_agents:
         await db.memory_entries.update_one(

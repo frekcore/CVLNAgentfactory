@@ -63,10 +63,14 @@ async def notify(level: int, title: str, message: str, source: str = "system", m
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     if cfg["push"] and os.environ.get("TELEGRAM_TOKEN"):
-        chat_id = await get_founder_chat_id()
-        if chat_id is None:
-            disc = await discover_chat_id()
-            chat_id = disc.get("chat_id")
+        try:
+            chat_id = await get_founder_chat_id()
+            if chat_id is None:
+                disc = await discover_chat_id()
+                chat_id = disc.get("chat_id")
+        except Exception as e:
+            chat_id = None
+            record["push_error"] = f"telegram discovery failed: {str(e)[:180]}"
         if chat_id:
             text = f"<b>{cfg['prefix']}</b>\n\n<b>{title}</b>\n{message}"
             try:
@@ -75,7 +79,7 @@ async def notify(level: int, title: str, message: str, source: str = "system", m
                 record["push_error"] = result["error"]
             except Exception as e:
                 record["push_error"] = str(e)[:200]
-        else:
+        elif not record["push_error"]:
             record["push_error"] = "founder chat_id not discovered yet (send /start to the bot)"
     await db.notifications.insert_one({**record})
     return record

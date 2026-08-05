@@ -88,6 +88,14 @@ def _sample_report(agent_id, confidence=88):
 class TestPhaseA_Submissions:
     """Submissions before closure. Order matters within the module."""
 
+    @pytest.fixture(autouse=True)
+    def skip_if_day_closed(self, admin_headers):
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        r = requests.get(f"{API}/daily/closings/{today}", headers=admin_headers)
+        if r.status_code == 200 and r.json().get("status") == "closed":
+            pytest.skip(f"day {today} already closed — suite non same-day idempotent (une clôture/jour)")
+
     def test_a1_admin_submit_agt000(self, admin_headers):
         r = requests.post(f"{API}/daily/reports", headers=admin_headers, json=_sample_report("AGT-000"))
         assert r.status_code == 200, r.text
@@ -158,6 +166,8 @@ class TestPhaseA_Submissions:
 class TestPhaseB_Closure:
     def test_b1_admin_can_close(self, admin_headers):
         r = requests.post(f"{API}/daily/close", headers=admin_headers, json={"note": "TEST closing iteration 2"})
+        if r.status_code == 409 and "already closed" in r.text:
+            pytest.skip("journée déjà clôturée — une seule clôture par jour")
         assert r.status_code == 200, r.text
         d = r.json()
         # pipeline steps present

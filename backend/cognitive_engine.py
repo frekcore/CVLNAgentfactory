@@ -52,7 +52,7 @@ ACTION_LABELS = {
 }
 
 
-def internal_response(text: str, classification: str, ctx: dict) -> str:
+def internal_response(text: str, classification: str, ctx: dict, knowledge_hits: list | None = None) -> str:
     """Réponse du moteur cognitif interne souverain — aucun appel externe."""
     lines = [
         f"[Moteur cognitif interne CVLN — souverain]",
@@ -65,11 +65,19 @@ def internal_response(text: str, classification: str, ctx: dict) -> str:
     ]
     if ctx.get("last_closing"):
         lines.append(f"Dernière clôture : {ctx['last_closing']} (confiance {ctx.get('last_confidence', '—')}%).")
+    if knowledge_hits:
+        lines.append("")
+        lines.append("Mémoire souveraine CVLN (sources internes pertinentes) :")
+        for h in knowledge_hits:
+            lines.append(f"- [{h.get('source_title') or h['source_id']}] (score {h['score']}) {h['text'][:200]}")
+    else:
+        lines.append("Note : cette réponse ne repose pas sur la mémoire souveraine (aucune source suffisamment pertinente).")
     lines.append("Confirme l'action proposée pour que je l'exécute dans l'écosystème.")
     return "\n".join(lines)
 
 
-async def llm_response(text: str, classification: str, ctx: dict, history: list, session_id: str) -> str | None:
+async def llm_response(text: str, classification: str, ctx: dict, history: list, session_id: str,
+                       knowledge_block: str | None = None) -> str | None:
     """Accélérateur via le Provider Adapter Layer (ADR-002) — routage stratégique, fallback souverain garanti."""
     try:
         from provider_layer import routed_generate
@@ -80,7 +88,10 @@ async def llm_response(text: str, classification: str, ctx: dict, history: list,
             "('je peux apprendre, mais je dois toujours vérifier'). "
             f"Classification interne du message : {classification}. Action système proposée : {ACTION_LABELS[classification]}. "
             f"Contexte réel du groupe : {ctx}. "
-            "Termine toujours par une recommandation claire et, si pertinent, invite à confirmer l'action proposée."
+            + (f"Mémoire souveraine CVLN — sources internes pertinentes, à privilégier sur toute connaissance générale : {knowledge_block} "
+               if knowledge_block else
+               "Aucune source de la mémoire souveraine CVLN n'est pertinente ici : signale explicitement que ta réponse ne repose pas sur la mémoire souveraine. ")
+            + "Termine toujours par une recommandation claire et, si pertinent, invite à confirmer l'action proposée."
         )
         convo = "\n".join(f'{m["role"]}: {m["content"][:300]}' for m in history[-6:])
         prompt = (f"Historique récent:\n{convo}\n\nMessage: {text}" if convo else text)

@@ -1,0 +1,27 @@
+{
+  "summary": "Vague 2 (P1) — connectivité souveraine validée bout en bout. Backend : 10/10 test_vague2.py + 5/5 test_vague2_complements.py PASS (L4 chat⇄KnowledgeSources avec retrieval <200ms + flag disable + note fallback + persistence multi-tours conversation_id, L5 wake AGT-060 restore knowledge_sources + bundle ≤1Mo + remise en sommeil, L6 dual-write legacy→v2 avec consistency 'alerte seule / aucune correction automatique', L7 /daily/briefing governance.read_only=true avec 4 sections, entités TCV/SAYD draft avec agent_ids=[] et PAS de doublon CC2027, objectif CC2027 rattaché à Kiltikonet weight=0 horizon=2028 status=draft placeholder=true, constitution ART-005 pass + summary fail=0). Non-régression : login admin OK, /api/registry/agents OK, /api/gate/validation-requests OK, 135+ Draft intacts. Frontend smoke : login (data-testid) → Dashboard, /runtime, /governance chargent sans écran blanc ni erreur JS bloquante.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_vague2.py",
+    "/app/backend/tests/test_vague2_complements.py",
+    "/app/test_reports/pytest/vague2_iter12.xml",
+    "/app/test_reports/pytest/vague2_complements_iter12.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Route française attendue par la review request est /gouvernance mais le code React expose /governance — cohérence de routing OK (aucun doublon), mais penser à préserver l'URL /governance dans toute doc future.",
+    "test_vague2.py réutilise conversation_id implicitement mais le test complément ajouté couvre désormais explicitement le multi-tours + GET /cognitive/conversations/{id}/messages."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_vague2_complements.py (nouveau : multi-tours conv, constitution summary fail=0, non-régression registry/gate/135 Draft)"
+  ],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (smoke Dashboard/Runtime/Governance)"},
+  "test_credentials": "laurent@cvln.fr / CVLNfactory2026! (JWT Bearer). Service AGT-000: svc_agt000_9f2e7c1a4b8d6f3e0a5c2d7b1e4f8a6c",
+  "seed_data_creation": "KnowledgeSource dédiée AGT-060 avec marqueur zorglubprotocole* créée par la fixture kb_source (préservée, pas de suppression). Item legacy /api/knowledge/ingest 'Test L6 dual-write *' créé pour vérifier la cohérence.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Vague 2 (P1) 100% verte (15/15 tests dédiés). DRY RUN respecté (AGT-060 remis en sommeil après wake). 135+ Draft intouchés. Chat cognitif : LLM ~10-15s de latence, prévoir timeout 90s. NE PAS clôturer la journée (déjà faite). Deux fichiers de tests Vague 2 : test_vague2.py (10) + test_vague2_complements.py (5). Prochaine vague : partir des mêmes fixtures admin/kb_source.",
+  "rca of the issue": "N/A — aucun bug trouvé lors de cette itération."
+}

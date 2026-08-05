@@ -11,6 +11,7 @@ from database import db
 from auth_utils import get_current_actor
 from activity_journal import journal
 from event_bus import publish
+from notifier import notify
 
 router = APIRouter(prefix="/knowledge/sources", tags=["knowledge-sources"])
 
@@ -88,6 +89,27 @@ class SovereignLexicalStore:
 vector_store = SovereignLexicalStore()
 
 
+async def dual_write_from_legacy(item: dict) -> str:
+    """L6 — dual write : réplique un knowledge_item legacy en KnowledgeSource v2. Aucune suppression legacy."""
+    existing = await db.knowledge_sources.find_one({"metadata.legacy_item_id": item["id"]}, {"_id": 0, "id": 1})
+    if existing:
+        return existing["id"]
+    count = await db.knowledge_sources.count_documents({})
+    ks_id = f"ks-{count + 1:04d}-{uuid.uuid4().hex[:6]}"
+    ts = now_iso()
+    agent_ids = item.get("target_agents", [])
+    n_chunks = await vector_store.ingest(ks_id, item.get("content", ""), agent_ids)
+    await db.knowledge_sources.insert_one({
+        "id": ks_id, "type": "document", "source_uri": f"legacy:knowledge_items/{item['id']}",
+        "title": item["title"], "version": str(item.get("version", 1)),
+        "embedding_model": "sovereign-lexical-v1", "vector_id_prefix": f"vec-{ks_id}", "chunks": n_chunks,
+        "agent_ids": agent_ids, "shared_commons": len(agent_ids) == 0,
+        "metadata": {"legacy_item_id": item["id"], "legacy_category": item.get("category"), "dual_write": True},
+        "content": item.get("content", ""), "created_by": item.get("created_by", "system:dual-write"),
+        "created_at": ts, "last_updated": ts})
+    return ks_id
+
+
 @router.get("")
 async def list_sources(agent_id: Optional[str] = None, actor: dict = Depends(get_current_actor)):
     query = {}
@@ -121,6 +143,32 @@ async def create_source(payload: KnowledgeSourcePayload, actor: dict = Depends(g
     source.pop("content", None)
     source.pop("_id", None)
     return source
+
+
+@router.get("/consistency")
+async def knowledge_consistency(actor: dict = Depends(get_current_actor)):
+    """L6 — contrôle de cohérence legacy⇄v2 : alerte seulement, aucune correction automatique."""
+    items = await db.knowledge_items.find({}, {"_id": 0, "id": 1, "title": 1, "content": 1}).to_list(2000)
+    coherent, mismatches, legacy_without_v2 = [], [], []
+    for it in items:
+        src = await db.knowledge_sources.find_one({"metadata.legacy_item_id": it["id"]},
+                                                  {"_id": 0, "id": 1, "content": 1})
+        if not src:
+            legacy_without_v2.append({"item_id": it["id"], "title": it.get("title", "")})
+        elif src.get("content") != it.get("content"):
+            mismatches.append({"item_id": it["id"], "source_id": src["id"], "title": it.get("title", "")})
+        else:
+            coherent.append(it["id"])
+    if mismatches:
+        await journal("erreur", actor,
+                      f"L6 — {len(mismatches)} incohérence(s) legacy⇄v2 détectée(s) — ALERTE SEULE, aucune correction automatique",
+                      source="knowledge-consistency", evidence={"mismatches": mismatches}, result="alert_only")
+        await notify(2, "Incohérence knowledge legacy⇄v2",
+                     f"{len(mismatches)} incohérence(s) détectée(s) — aucune correction automatique (validation humaine requise)",
+                     source="knowledge-consistency", meta={"count": len(mismatches)})
+    return {"policy": "alerte seulement — aucune correction automatique, legacy jamais supprimé (migration lecture seule)",
+            "total_legacy_items": len(items), "coherent": len(coherent),
+            "coherent_ids": coherent, "mismatches": mismatches, "legacy_without_v2": legacy_without_v2}
 
 
 @router.post("/search")

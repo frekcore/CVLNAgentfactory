@@ -69,9 +69,8 @@ class TestNotifications:
         body = r.json()
         if not body["pushed"]:
             assert body["push_error"], "push_error must explain the failure when pushed=false"
-        # But notification persisted
+        # But notification persisted (list is capped at 100 — check presence, not count)
         after = requests.get(f"{API}/notifications", headers=admin_headers).json()
-        assert len(after) >= len(before) + 1
         titles = [n["title"] for n in after]
         assert "Test CVLN Command" in titles
 
@@ -146,9 +145,8 @@ class TestMissionEngine:
                                 "deliverables": ["Rapport"], "recommendations": ["Recommandation A"]})
         assert r.status_code == 200, r.text
         assert r.json()["result"] == "delivered"
-        # Notification N2 created
+        # Notification N2 created (list capped at 100 — check presence, not count)
         after = requests.get(f"{API}/notifications?level=2", headers=admin_headers).json()
-        assert len(after) >= len(before) + 1
         assert any("livrée" in n["title"].lower() or "delivered" in n["title"].lower() for n in after)
 
     def test_validate_reader_forbidden(self, reader_headers):

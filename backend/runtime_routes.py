@@ -9,6 +9,8 @@ from activity_journal import journal
 from event_bus import publish
 from gate_routes import gate_check
 
+import json
+
 router = APIRouter(prefix="/runtime", tags=["agent-runtime"])
 
 RUNTIME_STATES = ["actif", "sommeil", "attente_validation", "erreur", "suspendu", "termine"]
@@ -218,6 +220,13 @@ async def wake_agent(agent_id: str, actor: dict = Depends(get_current_actor)):
                                                             {"_id": 0}).to_list(20)
     gate_rules = await db.permission_rules.find({"scope": "agent", "target_id": agent_id, "active": True},
                                                 {"_id": 0}).to_list(50)
+    # L5 — KnowledgeSources dans le bundle de restauration (métadonnées seules, bundle ≤ 1 Mo)
+    knowledge_sources = await db.knowledge_sources.find(
+        {"$or": [{"agent_ids": agent_id}, {"agent_ids": []}]},
+        {"_id": 0, "id": 1, "title": 1, "type": 1, "version": 1, "chunks": 1, "shared_commons": 1, "last_updated": 1}
+    ).sort("last_updated", -1).to_list(100)
+    if not knowledge_sources:
+        missing.append("aucune KnowledgeSource accessible (ni dédiée à l'agent, ni Knowledge Commons)")
     memory_counts = {}
     async for m in db.memory_entries.find({"agent_id": agent_id}, {"_id": 0, "scope": 1}):
         memory_counts[m["scope"]] = memory_counts.get(m["scope"], 0) + 1
@@ -237,7 +246,7 @@ async def wake_agent(agent_id: str, actor: dict = Depends(get_current_actor)):
                             "missing_information": missing}, result="awake")
     await publish("agent.woken", actor["id"], {"agent_id": agent_id, "missing": len(missing)})
 
-    return {
+    bundle = {
         "result": "awake", "agent_id": agent_id, "runtime": runtime,
         "restored_context": {
             "identity": {k: agent.get(k) for k in ("id", "name", "pole", "entity", "version", "mission")},
@@ -250,11 +259,20 @@ async def wake_agent(agent_id: str, actor: dict = Depends(get_current_actor)):
                             "autonomy": agent.get("autonomy"), "gate_rules": gate_rules},
             "pending_validations": pending_validations,
             "last_checkpoint": checkpoint,
+            "knowledge_sources": knowledge_sources,
             "operational_context": {"open_tasks": open_tasks, "missions_in_progress": missions,
                                     "memory_entries_by_scope": memory_counts},
         },
         "missing_information": missing,
     }
+    bundle_size = len(json.dumps(bundle, default=str).encode())
+    if bundle_size > 1_000_000:
+        bundle["restored_context"]["history"] = history[:3]
+        bundle["restored_context"]["knowledge_sources"] = knowledge_sources[:20]
+        bundle["truncated_for_size"] = True
+        bundle_size = len(json.dumps(bundle, default=str).encode())
+    bundle["bundle_size_bytes"] = bundle_size
+    return bundle
 
 
 async def runtime_recovery():
