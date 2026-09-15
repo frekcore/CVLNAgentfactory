@@ -1,5 +1,6 @@
 from frek_workforce_catalog import FREK_WORKFORCE
 from frek_workforce_adl import build_catalog
+from frek_workforce_contracts import capability_contract, static_catalog
 from frek_workforce_seed import validate_adl
 
 
@@ -38,3 +39,35 @@ def test_no_agent_has_global_write_wildcard():
     for role in FREK_WORKFORCE:
         assert "*" not in role.write_scope
         assert "*:*" not in role.write_scope
+
+
+def test_all_capabilities_project_to_metacvln_contract_v1():
+    catalog = static_catalog()
+    assert len(catalog) == 38
+    ids = set()
+    for item in catalog:
+        contract = item["capability"]
+        executor = item["executor"]
+        assert contract["contract"] == "capability"
+        assert contract["version"] == "1.0"
+        assert contract["health"] == "amber"  # Prototype/dry-run is discoverable, not production-green.
+        assert contract["id"] not in ids
+        ids.add(contract["id"])
+        assert executor["agent_id"].startswith("AGT-")
+        assert executor["controller"] == "CVLN Agent Factory"
+        assert executor["runtime_mode"] == "dry_run"
+        assert executor["activation"] == "on_demand"
+
+
+def test_human_gate_is_reflected_in_capability_contract():
+    gated = [r for r in FREK_WORKFORCE if r.human_gate]
+    ungated = [r for r in FREK_WORKFORCE if not r.human_gate]
+    assert gated and ungated
+    for role in gated:
+        contract = capability_contract(role, status="Prototype", runtime_state="sommeil")
+        assert contract["requires_approval_by"] == "human:admin"
+        assert contract["escalation_to"] == "human:admin"
+    for role in ungated:
+        contract = capability_contract(role, status="Prototype", runtime_state="sommeil")
+        assert contract["requires_approval_by"] is None
+        assert contract["escalation_to"] == "AGT-000"
