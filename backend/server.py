@@ -42,7 +42,9 @@ import provider_layer
 import founder_council
 import constitution_routes
 import mission_os_routes
+import frek_workforce_routes
 from seed_workforce import seed_workforce
+from frek_workforce_seed import seed_frek_workforce
 from doctrine import seed_doctrine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -54,6 +56,11 @@ async def lifespan(app: FastAPI):
     await seed_all()
     await seed_doctrine()
     await seed_workforce()
+    frek_seed = await seed_frek_workforce()
+    if not frek_seed["ok"]:
+        logger.error("FREK workforce bootstrap incomplete: %s", frek_seed)
+    else:
+        logger.info("FREK workforce ready: 38 PROTOTYPE/dry_run agents registered")
     await doctrine_registry_routes.seed_doctrine_registry()
     await constitution_routes.seed_constitution()
     await runtime_routes.runtime_recovery()
@@ -117,6 +124,7 @@ api_router.include_router(provider_layer.router)
 api_router.include_router(founder_council.router)
 api_router.include_router(constitution_routes.router)
 api_router.include_router(mission_os_routes.router)
+api_router.include_router(frek_workforce_routes.router)
 
 app.include_router(api_router)
 
