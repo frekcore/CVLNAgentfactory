@@ -1,0 +1,51 @@
+name: FREK Workforce CI
+
+on:
+  push:
+    branches:
+      - feat/frek-workforce-38-agents
+    paths:
+      - 'backend/frek_workforce_*.py'
+      - 'backend/tests/test_frek_workforce.py'
+      - '.github/workflows/frek-workforce-ci.yml'
+  pull_request:
+    branches:
+      - CVLN-AGENT-FACTORY
+    paths:
+      - 'backend/frek_workforce_*.py'
+      - 'backend/tests/test_frek_workforce.py'
+      - 'backend/server.py'
+      - '.github/workflows/frek-workforce-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  workforce-invariants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MONGO_URL: mongodb://127.0.0.1:27017
+      DB_NAME: cvln_agent_factory_ci
+      JWT_SECRET: ci-only-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+      - name: Install minimal test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest==9.1.1 pytest-xdist==3.8.0 \
+            fastapi==0.110.1 pydantic==2.13.4 \
+            motor==3.3.1 pymongo==4.6.3 \
+            python-dotenv==1.2.2 PyYAML==6.0.3 jsonschema==4.26.0
+      - name: Compile workforce modules
+        working-directory: backend
+        run: python -m py_compile frek_workforce_catalog.py frek_workforce_adl.py frek_workforce_seed.py
+      - name: Run FREK workforce invariant tests
+        working-directory: backend
+        run: python -m pytest tests/test_frek_workforce.py -q
