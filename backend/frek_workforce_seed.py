@@ -4,15 +4,21 @@ The bootstrap registers 38 agents as PROTOTYPE + dry_run. It never creates
 service tokens, never activates production, and never overwrites an existing
 agent definition. Conflicts fail closed and are journaled by the caller.
 """
+import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
+
+from jsonschema import Draft7Validator
 
 from database import db
 from frek_workforce_catalog import FREK_WORKFORCE
 from frek_workforce_adl import build_adl
-from adl_v2_routes import VALIDATOR
 
 logger = logging.getLogger(__name__)
+
+_SCHEMA = json.loads((Path(__file__).parent / "schemas" / "adl_v2_schema.json").read_text())
+VALIDATOR = Draft7Validator(_SCHEMA)
 
 
 def now_iso() -> str:
